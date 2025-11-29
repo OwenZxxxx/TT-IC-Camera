@@ -3,6 +3,7 @@ package com.owenzx.lightedit.ui.main
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.owenzx.lightedit.databinding.ActivityMainBinding
+import com.owenzx.lightedit.ui.entry.EntryFragment
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -13,9 +14,13 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // 验证：改一下 TextView 文本（假设布局里有一个 TextView）
-        // 如果默认模板是 "Hello World!" 的 TextView，id 一般是 textView
-        binding.textView.text = "LightEdit - Home"
+        // 只在首次创建 Activity 时添加 Fragment（避免旋转屏幕重复叠加）
+        if (savedInstanceState == null) {
+            supportFragmentManager
+                .beginTransaction()
+                .replace(binding.fragmentContainerView.id, EntryFragment())
+                .commit()
+        }
 
     }
 }

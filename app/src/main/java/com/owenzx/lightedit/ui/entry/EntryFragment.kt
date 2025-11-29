@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.owenzx.lightedit.databinding.FragmentEntryBinding
+import android.widget.Toast
 
 class EntryFragment : Fragment() {
     // 可空变量，fragment 的view可能比fragment的生命周期短
@@ -22,6 +23,29 @@ class EntryFragment : Fragment() {
     ): View {
         _binding = FragmentEntryBinding.inflate(inflater, container, false)
         return binding.root
+    }
+
+    // button on click listener
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        // “从相册选择照片”
+        binding.btnFromAlbum.setOnClickListener {
+            Toast.makeText(
+                requireContext(),
+                "TODO: 打开相册（后面实现）",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        // “拍一张照片”
+        binding.btnTakePhoto.setOnClickListener {
+            Toast.makeText(
+                requireContext(),
+                "TODO: 打开相机（后面实现）",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 
     override fun onDestroyView() {

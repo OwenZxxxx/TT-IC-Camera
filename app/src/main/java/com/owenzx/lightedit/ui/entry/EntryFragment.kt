@@ -8,7 +8,7 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.owenzx.lightedit.ui.album.AlbumFragment
 import com.owenzx.lightedit.databinding.FragmentEntryBinding
-import android.widget.Toast
+
 
 class EntryFragment : Fragment() {
     // 可空变量，fragment 的view可能比fragment的生命周期短

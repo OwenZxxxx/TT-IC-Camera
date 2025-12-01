@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 import com.owenzx.lightedit.data.album.PhotoItem
 import com.owenzx.lightedit.databinding.ItemPhotoGridBinding
+import com.owenzx.lightedit.core.image.ThumbnailLoader
 
 class AllPhotosAdapter(
     private var items: List<PhotoItem>,
@@ -19,8 +20,20 @@ class AllPhotosAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(photo: PhotoItem) {
-            /// 直接 URI 显示（之后会用线程生成缩略图优化）
-            binding.imageThumbnail.setImageURI(photo.uri)
+            // 估算缩略图尺寸：用屏幕宽度 / 列数
+            val spanCount = 3
+            val screenWidth = binding.root.resources.displayMetrics.widthPixels
+            val size = screenWidth / spanCount
+
+            val resolver = binding.root.context.applicationContext.contentResolver
+
+            ThumbnailLoader.loadSquareThumbnail(
+                imageView = binding.imageThumbnail,
+                resolver = resolver,
+                photoId = photo.id,
+                uri = photo.uri,
+                targetSizePx = size
+            )
 
             // 点击图片区域：进入编辑
             binding.imageThumbnail.setOnClickListener {

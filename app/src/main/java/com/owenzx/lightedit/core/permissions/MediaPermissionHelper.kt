@@ -17,4 +17,9 @@ object MediaPermissionHelper {
             Manifest.permission.READ_EXTERNAL_STORAGE
         }
     }
+
+    fun getCameraPermission(): String {
+        return Manifest.permission.CAMERA
+    }
+
 }

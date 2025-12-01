@@ -4,10 +4,11 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
+import com.owenzx.lightedit.R
 import androidx.fragment.app.Fragment
 import com.owenzx.lightedit.ui.album.AlbumFragment
 import com.owenzx.lightedit.databinding.FragmentEntryBinding
+import com.owenzx.lightedit.ui.camera.CameraCaptureFragment
 
 
 class EntryFragment : Fragment() {
@@ -43,14 +44,15 @@ class EntryFragment : Fragment() {
                 .addToBackStack(null)  // 加入返回栈，按返回键能回到 Entry
                 .commit()
         }
-        
-        // 拍一张照片：暂时先保留 Toast 占位
+
         binding.btnTakePhoto.setOnClickListener {
-            Toast.makeText(
-                requireContext(),
-                "TODO: 打开相机（后面实现）",
-                Toast.LENGTH_SHORT
-            ).show()
+            parentFragmentManager.beginTransaction()
+                .replace(
+                    R.id.fragment_container_view,
+                    CameraCaptureFragment()
+                )
+                .addToBackStack(null)
+                .commit()
         }
     }
 

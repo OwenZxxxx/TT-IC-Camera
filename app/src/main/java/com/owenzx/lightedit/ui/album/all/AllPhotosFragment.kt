@@ -24,6 +24,8 @@ class AllPhotosFragment : Fragment() {
 
     private lateinit var adapter: AllPhotosAdapter
 
+    // 用线程池做异步加载
+    // 启动一个单线程后台线程，专门用于加载相册数据
     private val executor = Executors.newSingleThreadExecutor()
 
     override fun onCreateView(
@@ -61,7 +63,8 @@ class AllPhotosFragment : Fragment() {
             onPreviewClick = { photo -> openPreview(photo) }
         )
 
-        binding.recyclerAllPhotos.layoutManager = GridLayoutManager(requireContext(), 3)
+        binding.recyclerAllPhotos.layoutManager =
+            GridLayoutManager(requireContext(), 3)
         binding.recyclerAllPhotos.adapter = adapter
     }
 
@@ -69,7 +72,10 @@ class AllPhotosFragment : Fragment() {
     private fun openEditor(photo: PhotoItem) {
         val fm = requireActivity().supportFragmentManager
         fm.beginTransaction()
-            .replace(R.id.fragment_container_view, EditorFragment.newInstance(photo.uri))
+            .replace(
+                R.id.fragment_container_view,
+                EditorFragment.newInstance(photo.uri)
+            )
             .addToBackStack(null)
             .commit()
     }
@@ -78,7 +84,9 @@ class AllPhotosFragment : Fragment() {
     private fun openPreview(photo: PhotoItem) {
         val fm = requireActivity().supportFragmentManager
         fm.beginTransaction()
-            .replace(R.id.fragment_container_view, PreviewFragment.newInstance(photo.uri))
+            .replace(
+                R.id.fragment_container_view,
+                PreviewFragment.newInstance(photo.uri))
             .addToBackStack(null)
             .commit()
     }
@@ -106,12 +114,14 @@ class AllPhotosFragment : Fragment() {
     // 加载图片
     private fun loadPhotos() {
 
+        // 进入 loadPhotos 时，先显示“正在加载相册...”
         binding.recyclerAllPhotos.visibility = View.GONE
         binding.tvState.visibility = View.VISIBLE
         binding.tvState.text = "正在加载相册..."
 
         val resolver = requireContext().contentResolver
 
+        // 在后台线程中调用queryAllPhotos
         executor.execute {
 
             val photos: List<PhotoItem> = try {
@@ -120,11 +130,13 @@ class AllPhotosFragment : Fragment() {
                 emptyList()
             }
 
+            // MediaStore 查询结果拿到之后，回到主线程更新 UI
             requireActivity().runOnUiThread {
                 if (!isAdded) return@runOnUiThread
-
+                // 处理空情况
                 if (photos.isEmpty()) {
                     showEmpty()
+                // 更新 RecyclerView
                 } else {
                     showContent()
                     adapter.submitList(photos)

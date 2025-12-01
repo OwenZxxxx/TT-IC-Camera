@@ -4,27 +4,39 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    // 用来显示状态文本
+    <!-- 顶部显示当前文件夹名称 -->
     <TextView
-        android:id="@+id/tv_state"
+        android:id="@+id/tv_folder_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="相册名称"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:padding="12dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- 空/状态提示 -->
+    <TextView
+        android:id="@+id/tv_folder_state"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="正在加载相册..."
+        android:text="正在加载..."
         android:visibility="gone"
-        android:textSize="16sp"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_folder_title"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintEnd_toEndOf="parent" />
 
-    // 用来显示真正的内容
+    <!-- 该文件夹内的图片网格 -->
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recycler_all_photos"
+        android:id="@+id/recycler_folder_photos"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:clipToPadding="false"
         android:padding="4dp"
-        app:layout_constraintTop_toTopOf="parent"
+        android:clipToPadding="false"
+        app:layout_constraintTop_toBottomOf="@id/tv_folder_title"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />

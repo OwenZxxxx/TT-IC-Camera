@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.owenzx.lightedit.ui.album.AlbumFragment
 import com.owenzx.lightedit.databinding.FragmentEntryBinding
+import android.widget.Toast
 
 class EntryFragment : Fragment() {
     // 可空变量，fragment 的view可能比fragment的生命周期短
@@ -42,7 +43,7 @@ class EntryFragment : Fragment() {
                 .addToBackStack(null)  // 加入返回栈，按返回键能回到 Entry
                 .commit()
         }
-
+        
         // 拍一张照片：暂时先保留 Toast 占位
         binding.btnTakePhoto.setOnClickListener {
             Toast.makeText(

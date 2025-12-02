@@ -183,6 +183,112 @@
         </LinearLayout>
     </LinearLayout>
 
+    <!-- 旋转/翻转模式下的底部操作条（默认隐藏） -->
+    <LinearLayout
+        android:id="@+id/layout_rotate_controls"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="6dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/layout_editor_toolbar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- 第一行：可横向滚动的旋转/翻转按钮 -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:overScrollMode="never"
+            android:paddingVertical="4dp">
+
+            <LinearLayout
+                android:id="@+id/layout_rotate_action_group"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <Button
+                    android:id="@+id/btn_rotate_left_90"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="左转90°"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
+                    android:id="@+id/btn_rotate_right_90"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="右转90°"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
+                    android:id="@+id/btn_rotate_180"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="旋转180°"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
+                    android:id="@+id/btn_flip_horizontal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="水平翻转"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
+                    android:id="@+id/btn_flip_vertical"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="垂直翻转"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp" />
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- 第二行：取消 - 旋转与翻转 - 确认 -->
+        <LinearLayout
+            android:id="@+id/layout_rotate_bottom_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingTop="6dp">
+
+            <Button
+                android:id="@+id/btn_rotate_cancel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="取消" />
+
+            <TextView
+                android:id="@+id/tv_rotate_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="旋转与翻转"
+                android:gravity="center"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btn_rotate_confirm"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="确认" />
+        </LinearLayout>
+    </LinearLayout>
+
     <!-- 普通编辑模式的工具栏 -->
     <LinearLayout
         android:id="@+id/layout_editor_toolbar"

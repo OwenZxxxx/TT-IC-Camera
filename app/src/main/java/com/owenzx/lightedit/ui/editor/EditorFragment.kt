@@ -9,6 +9,9 @@ import androidx.fragment.app.Fragment
 import com.owenzx.lightedit.databinding.FragmentEditorBinding
 import android.widget.Toast
 import com.owenzx.lightedit.ui.editor.crop.AspectRatioMode
+import android.graphics.Bitmap
+import android.graphics.Matrix
+import android.graphics.drawable.BitmapDrawable
 
 class EditorFragment : Fragment() {
 
@@ -29,7 +32,14 @@ class EditorFragment : Fragment() {
     private var _binding: FragmentEditorBinding? = null
     private val binding get() = _binding!!
 
+    //裁剪模式标记
     private var inCropMode: Boolean = false
+
+    // 旋转/翻转模式标记
+    private var inRotateMode: Boolean = false
+
+    // 进入旋转模式时的原图备份，用于“取消”还原
+    private var rotateBackupBitmap: Bitmap? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,11 +75,12 @@ class EditorFragment : Fragment() {
             enterCropMode()
         }
 
-        // 下面几个暂时先留空或 TODO，后续再逐个实现
+        // 旋转按钮 → 进入旋转模式
         binding.btnToolRotate.setOnClickListener {
-            Toast.makeText(requireContext(), "旋转功能待实现", Toast.LENGTH_SHORT).show()
+            enterRotateMode()
         }
 
+        // 下面几个暂时先留空或 TODO，后续再逐个实现
         binding.btnToolAdjust.setOnClickListener {
             Toast.makeText(requireContext(), "亮度/对比度功能待实现", Toast.LENGTH_SHORT).show()
         }
@@ -126,6 +137,42 @@ class EditorFragment : Fragment() {
         binding.btnRatio916.setOnClickListener {
             binding.cropOverlayView.setAspectRatio(AspectRatioMode.RATIO_9_16)
         }
+
+        // 旋转/翻转控制条按钮
+        // 左转 90°
+        binding.btnRotateLeft90.setOnClickListener {
+            applyRotate( -90f )
+        }
+
+        // 右转 90°
+        binding.btnRotateRight90.setOnClickListener {
+            applyRotate( 90f )
+        }
+
+        // 旋转 180°
+        binding.btnRotate180.setOnClickListener {
+            applyRotate( 180f )
+        }
+
+        // 水平翻转
+        binding.btnFlipHorizontal.setOnClickListener {
+            applyFlip(horizontal = true)
+        }
+
+        // 垂直翻转
+        binding.btnFlipVertical.setOnClickListener {
+            applyFlip(horizontal = false)
+        }
+
+        // 取消：丢弃所有旋转/翻转操作，还原备份
+        binding.btnRotateCancel.setOnClickListener {
+            exitRotateMode(applyChanges = false)
+        }
+
+        // 确认：保留当前结果
+        binding.btnRotateConfirm.setOnClickListener {
+            exitRotateMode(applyChanges = true)
+        }
     }
 
     private fun enterCropMode() {
@@ -154,9 +201,119 @@ class EditorFragment : Fragment() {
         binding.imageEditCanvas.setCropModeEnabled(false)
     }
 
+    private fun enterRotateMode() {
+        if (inRotateMode) return
+
+        // 如果当前在裁剪模式，先“应用”裁剪再进入旋转（也可以选择先退出裁剪）
+        if (inCropMode) {
+            exitCropMode()
+        }
+
+        // 备份当前 Bitmap：用于“取消”时恢复
+        val drawable = binding.imageEditCanvas.drawable as? BitmapDrawable
+        val currentBitmap = drawable?.bitmap
+        if (currentBitmap == null) {
+            Toast.makeText(requireContext(), "没有可编辑的图片", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // copy 一份防止后续 Bitmap.createBitmap 链式操作污染原图
+        rotateBackupBitmap = currentBitmap.copy(Bitmap.Config.ARGB_8888, true)
+
+        inRotateMode = true
+
+        // 显示旋转控制条，隐藏普通编辑工具条
+        binding.layoutRotateControls.visibility = View.VISIBLE
+        binding.layoutEditorToolbar.visibility = View.GONE
+
+        // 裁剪遮罩一定要关掉
+        binding.cropOverlayView.visibility = View.GONE
+        binding.layoutCropControls.visibility = View.GONE
+    }
+
+    // 对当前图片做旋转
+    private fun applyRotate(degrees: Float) {
+        if (!inRotateMode) return
+
+        val drawable = binding.imageEditCanvas.drawable as? BitmapDrawable ?: return
+        val src = drawable.bitmap ?: return
+        if (src.width <= 0 || src.height <= 0) return
+
+        val matrix = Matrix().apply {
+            // 围绕图片中心旋转
+            postRotate(degrees, src.width / 2f, src.height / 2f)
+        }
+
+        val rotated = try {
+            Bitmap.createBitmap(src, 0, 0, src.width, src.height, matrix, true)
+        } catch (e: IllegalArgumentException) {
+            Toast.makeText(requireContext(), "旋转失败", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 更新显示为旋转之后的图片
+        binding.imageEditCanvas.setImageBitmap(rotated)
+    }
+
+    // 对当前图片做翻转；只在旋转模式下生效
+    private fun applyFlip(horizontal: Boolean) {
+        if (!inRotateMode) return
+
+        val drawable = binding.imageEditCanvas.drawable as? BitmapDrawable ?: return
+        val src = drawable.bitmap ?: return
+        if (src.width <= 0 || src.height <= 0) return
+
+        val matrix = Matrix().apply {
+            val cx = src.width / 2f
+            val cy = src.height / 2f
+            if (horizontal) {
+                // 水平翻转：X 轴取反
+                postScale(-1f, 1f, cx, cy)
+            } else {
+                // 垂直翻转：Y 轴取反
+                postScale(1f, -1f, cx, cy)
+            }
+        }
+
+        val flipped = try {
+            Bitmap.createBitmap(src, 0, 0, src.width, src.height, matrix, true)
+        } catch (e: IllegalArgumentException) {
+            Toast.makeText(requireContext(), "翻转失败", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        binding.imageEditCanvas.setImageBitmap(flipped)
+    }
+
+
+    private fun exitRotateMode(applyChanges: Boolean) {
+        if (!inRotateMode) return
+        inRotateMode = false
+
+        if (!applyChanges) {
+            // 还原原图
+            rotateBackupBitmap?.let { backup ->
+                binding.imageEditCanvas.setImageBitmap(backup)
+            }
+        } else {
+            // 确认旋转：备份已没用了，可以回收释放内存
+            rotateBackupBitmap?.recycle()
+        }
+        rotateBackupBitmap = null
+
+        // 隐藏旋转控制条，恢复普通工具栏
+        binding.layoutRotateControls.visibility = View.GONE
+        binding.layoutEditorToolbar.visibility = View.VISIBLE
+    }
+
 
     override fun onDestroyView() {
         super.onDestroyView()
+
+        // 安全回收旋转备份
+        rotateBackupBitmap?.recycle()
+        rotateBackupBitmap = null
+
         _binding = null
     }
 }

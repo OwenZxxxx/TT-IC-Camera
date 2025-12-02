@@ -12,6 +12,7 @@ import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import androidx.appcompat.widget.AppCompatImageView
 import kotlin.math.min
+import android.graphics.drawable.BitmapDrawable
 
 class ZoomableImageView @JvmOverloads constructor(
     context: Context,
@@ -51,6 +52,9 @@ class ZoomableImageView @JvmOverloads constructor(
 
     // 回弹动画
     private var settleAnimator: ValueAnimator? = null
+
+    // 表示剪裁功能开启
+    private var cropModeEnabled: Boolean = false
 
     // 缩放手势检测器
     private val scaleDetector = ScaleGestureDetector(
@@ -169,6 +173,11 @@ class ZoomableImageView @JvmOverloads constructor(
 
     // 拖动 + 边界限制逻辑
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        // 裁剪模式下，图片不响应缩放/拖动，把事件交给上层（裁剪框）
+        if (cropModeEnabled) {
+            return false
+        }
+
         // 先交给缩放检测器处理（内部会根据多指事件计算缩放）
         scaleDetector.onTouchEvent(event)
 
@@ -403,6 +412,64 @@ class ZoomableImageView @JvmOverloads constructor(
         }
     }
 
+    // 根据裁剪框（View 坐标系）裁剪当前 Bitmap，返回新的 Bitmap
+    fun getCroppedBitmap(cropRectInView: RectF): Bitmap? {
+        // 拿到当前 Bitmap
+        val drawable = drawable as? BitmapDrawable ?: return null
+        val source = drawable.bitmap ?: return null
+        if (source.width <= 0 || source.height <= 0) return null
+
+        // 计算当前 Bitmap 在 View 中的显示范围（用于和裁剪框取交集）
+        val imageBoundsInView = RectF(
+            0f,
+            0f,
+            source.width.toFloat(),
+            source.height.toFloat()
+        )
+        imageMatrix.mapRect(imageBoundsInView)
+
+        // 和裁剪框做相交，避免裁出去的是“没有图片”的区域
+        val intersectRect = RectF(cropRectInView)
+        val hasIntersection = intersectRect.intersect(imageBoundsInView)
+        if (!hasIntersection) {
+            // 裁剪区域完全在图片外面，没必要裁
+            return null
+        }
+
+        // 用 imageMatrix 的逆矩阵，把 View 坐标系下的 intersectRect 映射回 Bitmap 坐标
+        val inverseMatrix = Matrix()
+        if (!imageMatrix.invert(inverseMatrix)) {
+            return null
+        }
+
+        val cropInBitmap = RectF(intersectRect)
+        inverseMatrix.mapRect(cropInBitmap)
+
+        // 做边界裁剪（防止浮点误差导致越界）
+        val leftF = cropInBitmap.left.coerceIn(0f, source.width.toFloat())
+        val topF = cropInBitmap.top.coerceIn(0f, source.height.toFloat())
+        val rightF = cropInBitmap.right.coerceIn(0f, source.width.toFloat())
+        val bottomF = cropInBitmap.bottom.coerceIn(0f, source.height.toFloat())
+
+        val left = leftF.toInt()
+        val top = topF.toInt()
+        val width = (rightF - leftF).toInt().coerceAtLeast(1)
+        val height = (bottomF - topF).toInt().coerceAtLeast(1)
+
+        if (width <= 0 || height <= 0) return null
+        if (left >= source.width || top >= source.height) return null
+
+        val safeWidth = min(width, source.width - left)
+        val safeHeight = min(height, source.height - top)
+
+        return try {
+            Bitmap.createBitmap(source, left, top, safeWidth, safeHeight)
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    }
+
+
     private fun cancelSettleAnimator() {
         settleAnimator?.cancel()
         settleAnimator = null
@@ -411,6 +478,11 @@ class ZoomableImageView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         cancelSettleAnimator()
+    }
+
+    // 裁剪模式：ZoomableImageView 不再处理触摸事件，事件会交给上面的 CropOverlayView
+    fun setCropModeEnabled(enabled: Boolean) {
+        cropModeEnabled = enabled
     }
 
 }

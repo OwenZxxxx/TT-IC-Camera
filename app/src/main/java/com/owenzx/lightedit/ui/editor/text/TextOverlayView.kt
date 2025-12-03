@@ -22,12 +22,10 @@ class TextOverlayView @JvmOverloads constructor(
 
     // ========== 对外状态 & 回调 ==========
 
-    /**
-     * 是否处于“文字工具激活”状态：
-     * - EditorMode.TEXT 或 正在文字内容编辑 时应为 true
-     * - NORMAL / CROP / ROTATE / ADJUST 时为 false
-     * 为 true 时，所有触摸事件都由 TextOverlayView 处理，不再传到底图。
-     */
+    // 是否处于“文字工具激活”状态：
+    // - EditorMode.TEXT 或 正在文字内容编辑 时应为 true
+    // - NORMAL / CROP / ROTATE / ADJUST 时为 false
+    // 为 true 时，所有触摸事件都由 TextOverlayView 处理，不再传到底图。
     var isTextToolActive: Boolean = false
 
     /** 双击某个文本框时回调（交给 Fragment 弹出文字输入面板） */
@@ -146,8 +144,12 @@ class TextOverlayView @JvmOverloads constructor(
     private var initialScale = 1f
     private var initialRotation = 0f
 
-    // 新增：当前缩放/旋转是否来自“右下角手柄”
+    // 当前缩放/旋转是否来自“右下角手柄”
     private var useHandleForScaleRotate = false
+
+
+    // 导出/保存时使用：为 true 时不画选中边框和角按钮
+    var suppressSelectionDrawing: Boolean = false
 
     // ========== 工具函数 ==========
 
@@ -304,8 +306,10 @@ class TextOverlayView @JvmOverloads constructor(
         super.onDraw(canvas)
         if (elements.isEmpty()) return
 
+        val drawSelection = !suppressSelectionDrawing
         for ((index, element) in elements.withIndex()) {
-            drawSingleElement(canvas, element, index == selectedIndex)
+            val isSelected = drawSelection && index == selectedIndex
+            drawSingleElement(canvas, element, isSelected)
         }
     }
 

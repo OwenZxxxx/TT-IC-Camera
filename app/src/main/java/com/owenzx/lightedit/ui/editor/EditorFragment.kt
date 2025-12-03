@@ -24,10 +24,7 @@ import androidx.fragment.app.Fragment
 import com.owenzx.lightedit.databinding.FragmentEditorBinding
 import com.owenzx.lightedit.ui.editor.crop.AspectRatioMode
 import com.owenzx.lightedit.ui.editor.text.TextOverlayView
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
-
 
 class EditorFragment : Fragment() {
 
@@ -85,6 +82,7 @@ class EditorFragment : Fragment() {
 
     // 用于保存图片的后台线程池（单线程即可）
     private val ioExecutor = Executors.newSingleThreadExecutor()
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -270,21 +268,30 @@ class EditorFragment : Fragment() {
 
         // 顶部保存：合成当前画面 + 水印，然后写入系统相册
         binding.btnEditorSave.setOnClickListener {
-            // 先在当前线程合成带“训练营”水印的 Bitmap
+            // 禁止重复点击
+            if (!binding.btnEditorSave.isEnabled) return@setOnClickListener
+            binding.btnEditorSave.isEnabled = false
+
             val composed = composeCurrentImageWithWatermark()
             if (composed == null) {
                 Toast.makeText(requireContext(), "当前画面尚未准备好，稍后再试", Toast.LENGTH_SHORT).show()
+                binding.btnEditorSave.isEnabled = true
                 return@setOnClickListener
             }
 
-            // 再把保存操作丢到线程池执行
             saveBitmapToGallery(composed) { success ->
+                binding.btnEditorSave.isEnabled = true
+
                 if (success) {
                     Toast.makeText(
                         requireContext(),
                         "保存成功，图片已保存到相册",
                         Toast.LENGTH_SHORT
                     ).show()
+
+                    // 返回上一页（相册界面）
+                    parentFragmentManager.popBackStack()
+
                 } else {
                     Toast.makeText(
                         requireContext(),
@@ -294,6 +301,8 @@ class EditorFragment : Fragment() {
                 }
             }
         }
+
+
 
         // 普通工具栏：裁剪
         binding.btnToolCrop.setOnClickListener {
@@ -950,7 +959,7 @@ class EditorFragment : Fragment() {
         return result
     }
 
-    //  把当前编辑画面（底图 + 文本）合成到一张 Bitmap，并在右下角加上“训练营”水印
+    // 把当前编辑画面（底图 + 文本）合成到一张 Bitmap，并在右下角加上“训练营”水印。
     private fun composeCurrentImageWithWatermark(): Bitmap? {
         val root = binding.editorCanvasContainer
         val w = root.width
@@ -993,7 +1002,6 @@ class EditorFragment : Fragment() {
         return result
     }
 
-    // 把 bitmap 保存到系统相册（Pictures/TT-IC-Camera），成功返回 true，失败返回 false
     private fun saveBitmapToGallery(bitmap: Bitmap, onResult: (Boolean) -> Unit) {
         ioExecutor.execute {
             val success = try {
@@ -1042,6 +1050,7 @@ class EditorFragment : Fragment() {
             }
         }
     }
+
 
 
     override fun onDestroyView() {

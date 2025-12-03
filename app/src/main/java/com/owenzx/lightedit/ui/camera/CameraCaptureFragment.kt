@@ -17,6 +17,7 @@ import com.owenzx.lightedit.R
 import com.owenzx.lightedit.core.permissions.MediaPermissionHelper
 import com.owenzx.lightedit.databinding.FragmentCameraCaptureBinding
 import com.owenzx.lightedit.ui.editor.EditorFragment
+import java.util.concurrent.Executors
 
 class CameraCaptureFragment : Fragment() {
 
@@ -48,6 +49,9 @@ class CameraCaptureFragment : Fragment() {
                 backToEntry()
             }
         }
+
+    // 用于保存图片的后台线程池（单线程即可）
+    private val ioExecutor = Executors.newSingleThreadExecutor()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -160,6 +164,8 @@ class CameraCaptureFragment : Fragment() {
             parentFragmentManager.popBackStack()
         }, 500)
     }
+
+
 
     private fun showState(msg: String) {
         binding.tvCameraState.text = msg

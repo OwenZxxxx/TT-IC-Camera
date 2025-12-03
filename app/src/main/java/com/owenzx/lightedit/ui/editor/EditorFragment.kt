@@ -1,13 +1,18 @@
 package com.owenzx.lightedit.ui.editor
 
+import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.Paint
 import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -19,6 +24,10 @@ import androidx.fragment.app.Fragment
 import com.owenzx.lightedit.databinding.FragmentEditorBinding
 import com.owenzx.lightedit.ui.editor.crop.AspectRatioMode
 import com.owenzx.lightedit.ui.editor.text.TextOverlayView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.concurrent.Executors
+
 
 class EditorFragment : Fragment() {
 
@@ -73,6 +82,9 @@ class EditorFragment : Fragment() {
 
     // 文字模式的状态备份（进入 TEXT 模式时记录，用于取消恢复）
     private var textBackupState: TextOverlayView.TextStateSnapshot? = null
+
+    // 用于保存图片的后台线程池（单线程即可）
+    private val ioExecutor = Executors.newSingleThreadExecutor()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -256,17 +268,31 @@ class EditorFragment : Fragment() {
             parentFragmentManager.popBackStack()
         }
 
-        // 顶部保存
+        // 顶部保存：合成当前画面 + 水印，然后写入系统相册
         binding.btnEditorSave.setOnClickListener {
-            val composed = composeCurrentImageWithText()
+            // 先在当前线程合成带“训练营”水印的 Bitmap
+            val composed = composeCurrentImageWithWatermark()
             if (composed == null) {
-                Toast.makeText(requireContext(), "当前界面还没准备好，稍后再试", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "当前画面尚未准备好，稍后再试", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            // TODO：在这里把 composed 保存到相册，并加“训练营”水印
-            // 先留一个占位：
-            Toast.makeText(requireContext(), "已生成合成图片，下一步实现保存到相册", Toast.LENGTH_SHORT).show()
+            // 再把保存操作丢到线程池执行
+            saveBitmapToGallery(composed) { success ->
+                if (success) {
+                    Toast.makeText(
+                        requireContext(),
+                        "保存成功，图片已保存到相册",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    Toast.makeText(
+                        requireContext(),
+                        "保存失败，可能是存储空间不足或无写入权限",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
         }
 
         // 普通工具栏：裁剪
@@ -923,6 +949,100 @@ class EditorFragment : Fragment() {
 
         return result
     }
+
+    //  把当前编辑画面（底图 + 文本）合成到一张 Bitmap，并在右下角加上“训练营”水印
+    private fun composeCurrentImageWithWatermark(): Bitmap? {
+        val root = binding.editorCanvasContainer
+        val w = root.width
+        val h = root.height
+        if (w <= 0 || h <= 0) return null
+
+        // 临时隐藏选中框和角按钮，仅用于这次绘制
+        val overlay = binding.textOverlayView
+        val oldSuppress = overlay.suppressSelectionDrawing
+        overlay.suppressSelectionDrawing = true
+
+        val result = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(result)
+
+        // 把整个编辑容器（包括 imageEditCanvas + textOverlayView）画到 Bitmap
+        root.draw(canvas)
+
+        // 恢复选中框绘制开关
+        overlay.suppressSelectionDrawing = oldSuppress
+
+        // 在右下角绘制“训练营”水印
+        val watermarkText = "训练营"
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = (16 * resources.displayMetrics.scaledDensity)  // 16sp 左右
+            style = Paint.Style.FILL
+            setShadowLayer(4f, 2f, 2f, 0x80000000.toInt())            // 轻微阴影提高可见性
+        }
+
+        // 计算文字宽高
+        val textBounds = android.graphics.Rect()
+        paint.getTextBounds(watermarkText, 0, watermarkText.length, textBounds)
+        val padding = 16 * resources.displayMetrics.density
+
+        val x = w - padding - textBounds.width()
+        val y = h - padding
+
+        canvas.drawText(watermarkText, x, y, paint)
+
+        return result
+    }
+
+    // 把 bitmap 保存到系统相册（Pictures/TT-IC-Camera），成功返回 true，失败返回 false
+    private fun saveBitmapToGallery(bitmap: Bitmap, onResult: (Boolean) -> Unit) {
+        ioExecutor.execute {
+            val success = try {
+                val resolver = requireContext().contentResolver
+                val fileName = "TTIC_${System.currentTimeMillis()}.jpg"
+
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
+                    put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        put(
+                            MediaStore.Images.Media.RELATIVE_PATH,
+                            Environment.DIRECTORY_PICTURES + "/TT-IC-Camera"
+                        )
+                        put(MediaStore.Images.Media.IS_PENDING, 1)
+                    }
+                }
+
+                val uri = resolver.insert(
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    contentValues
+                ) ?: return@execute onResult(false)
+
+                resolver.openOutputStream(uri)?.use { out ->
+                    val ok = bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
+                    if (!ok) {
+                        return@execute onResult(false)
+                    }
+                } ?: return@execute onResult(false)
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    contentValues.clear()
+                    contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
+                    resolver.update(uri, contentValues, null, null)
+                }
+
+                true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+
+            // 回到主线程通知结果（弹 Toast 只能在主线程）
+            requireActivity().runOnUiThread {
+                onResult(success)
+            }
+        }
+    }
+
 
     override fun onDestroyView() {
         val b = _binding

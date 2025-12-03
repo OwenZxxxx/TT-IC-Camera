@@ -20,16 +20,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- 左上：返回 -->
         <ImageButton
             android:id="@+id/btn_editor_back"
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/app_name"
-            android:src="@android:drawable/ic_media_previous" />
+            android:src="@drawable/ic_back" />
 
-        <!-- 中间：标题，占满中间空间 -->
         <TextView
             android:id="@+id/tv_editor_title"
             android:layout_width="0dp"
@@ -41,7 +39,6 @@
             android:textStyle="bold"
             android:gravity="center_horizontal" />
 
-        <!-- 右上：保存（将来可以换成 icon） -->
         <ImageButton
             android:id="@+id/btn_editor_save"
             android:layout_width="36dp"
@@ -51,8 +48,7 @@
             android:src="@android:drawable/ic_menu_save" />
     </LinearLayout>
 
-    <!-- 中间画布区域：图片 + 裁剪遮罩
-         顶部挨着 header，底部挨着统一底部面板 -->
+    <!-- 中间画布区域：图片 + 变暗层 + 文字覆盖层 + 裁剪遮罩 -->
     <FrameLayout
         android:id="@+id/editor_canvas_container"
         android:layout_width="0dp"
@@ -72,7 +68,23 @@
             android:contentDescription="@string/app_name"
             tools:src="@drawable/ic_launcher_foreground" />
 
-        <!-- 上层：裁剪遮罩（裁剪模式时显示） -->
+        <!-- 中间：背景变暗层（文字内容编辑时显示） -->
+        <View
+            android:id="@+id/view_dim_background"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#80000000"
+            android:visibility="gone" />
+
+        <!-- 中层：文字覆盖层 -->
+        <com.owenzx.lightedit.ui.editor.text.TextOverlayView
+            android:id="@+id/text_overlay_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- 上层：裁剪遮罩 -->
         <com.owenzx.lightedit.ui.editor.crop.CropOverlayView
             android:id="@+id/crop_overlay_view"
             android:layout_width="match_parent"
@@ -82,6 +94,7 @@
             android:focusable="true" />
     </FrameLayout>
 
+    <!-- 底部整体面板 -->
     <LinearLayout
         android:id="@+id/layout_bottom_panel"
         android:layout_width="0dp"
@@ -92,7 +105,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- 上部：模式控制容器（内部一次只显示一个 LinearLayout） -->
+        <!-- 上部：模式控制容器（内部一次只显示一个） -->
         <FrameLayout
             android:id="@+id/layout_mode_controls_container"
             android:layout_width="match_parent"
@@ -109,7 +122,6 @@
                 android:background="@android:color/transparent"
                 android:visibility="gone">
 
-                <!-- 第一行：可横向滚动的裁剪比例选项 -->
                 <HorizontalScrollView
                     android:id="@+id/scroll_ratio"
                     android:layout_width="match_parent"
@@ -173,7 +185,6 @@
                     </LinearLayout>
                 </HorizontalScrollView>
 
-                <!-- 第二行：取消 - 裁剪 - 确认 -->
                 <LinearLayout
                     android:id="@+id/layout_crop_bottom_row"
                     android:layout_width="match_parent"
@@ -217,7 +228,6 @@
                 android:background="@android:color/transparent"
                 android:visibility="gone">
 
-                <!-- 第一行：可横向滚动的旋转/翻转按钮 -->
                 <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -277,7 +287,6 @@
                     </LinearLayout>
                 </HorizontalScrollView>
 
-                <!-- 第二行：取消 - 旋转与翻转 - 确认 -->
                 <LinearLayout
                     android:id="@+id/layout_rotate_bottom_row"
                     android:layout_width="match_parent"
@@ -321,7 +330,6 @@
                 android:background="@android:color/transparent"
                 android:visibility="gone">
 
-                <!-- 第 0 行：对比按钮（按住看原图，松手看调色后） -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -335,7 +343,6 @@
                         android:text="按住对比原图" />
                 </LinearLayout>
 
-                <!-- 第 1 行：亮度 / 对比度滑条 -->
                 <LinearLayout
                     android:id="@+id/layout_adjust_sliders"
                     android:layout_width="match_parent"
@@ -397,7 +404,6 @@
                     </LinearLayout>
                 </LinearLayout>
 
-                <!-- 第 2 行：亮度 / 对比度快捷按钮 -->
                 <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -447,7 +453,6 @@
                     </LinearLayout>
                 </HorizontalScrollView>
 
-                <!-- 第 3 行：取消 - 调色 - 确认 -->
                 <LinearLayout
                     android:id="@+id/layout_adjust_bottom_row"
                     android:layout_width="match_parent"
@@ -479,6 +484,257 @@
                         android:text="确认" />
                 </LinearLayout>
             </LinearLayout>
+
+            <!-- 文字模式控制条：输入栏 + 样式面板 -->
+            <LinearLayout
+                android:id="@+id/layout_text_controls"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="12dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="8dp"
+                android:visibility="gone">
+
+                <!-- A. 文字输入栏：只在双击文本时显示 -->
+                <LinearLayout
+                    android:id="@+id/layout_text_edit_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:visibility="gone">
+
+                    <EditText
+                        android:id="@+id/et_text_input"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:hint="点击输入文字"
+                        android:singleLine="false"
+                        android:maxLines="3"
+                        android:background="@android:color/transparent"
+                        android:textSize="14sp" />
+
+                    <ImageButton
+                        android:id="@+id/btn_text_clear"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@drawable/ic_clear"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
+
+                    <ImageButton
+                        android:id="@+id/btn_text_close"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@drawable/ic_close"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
+
+                    <ImageButton
+                        android:id="@+id/btn_text_confirm"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:src="@drawable/ic_save"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
+                </LinearLayout>
+
+                <!-- B. 样式面板：字体 / 字号 / 颜色 / 透明度 + 完成/+ -->
+                <LinearLayout
+                    android:id="@+id/layout_text_style_panel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingTop="4dp">
+
+                    <!-- 字体 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingVertical="4dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="字体"
+                            android:layout_marginEnd="8dp" />
+
+                        <Button
+                            android:id="@+id/btn_font_default"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="默认" />
+
+                        <Button
+                            android:id="@+id/btn_font_serif"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="衬线" />
+
+                        <Button
+                            android:id="@+id/btn_font_mono"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="等宽" />
+                    </LinearLayout>
+
+                    <!-- 字号 12~36 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingVertical="4dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="字号"
+                            android:layout_marginEnd="8dp" />
+
+                        <SeekBar
+                            android:id="@+id/seek_text_size"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+
+                        <TextView
+                            android:id="@+id/tv_text_size_value"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="18" />
+                    </LinearLayout>
+
+                    <!-- 颜色 -->
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:overScrollMode="never"
+                        android:paddingVertical="4dp">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <View
+                                android:id="@+id/btn_color_1"
+                                style="@style/TextColorCircle"
+                                android:backgroundTint="@android:color/white" />
+
+                            <View
+                                android:id="@+id/btn_color_2"
+                                style="@style/TextColorCircle"
+                                android:backgroundTint="@android:color/black" />
+
+                            <View
+                                android:id="@+id/btn_color_3"
+                                style="@style/TextColorCircle"
+                                android:backgroundTint="#FF0000" />
+
+                            <View
+                                android:id="@+id/btn_color_4"
+                                style="@style/TextColorCircle"
+                                android:backgroundTint="#00FF00" />
+
+                            <View
+                                android:id="@+id/btn_color_5"
+                                style="@style/TextColorCircle"
+                                android:backgroundTint="#0000FF" />
+
+                            <View
+                                android:id="@+id/btn_color_6"
+                                style="@style/TextColorCircle"
+                                android:backgroundTint="#FFFF00" />
+
+                            <View
+                                android:id="@+id/btn_color_7"
+                                style="@style/TextColorCircle"
+                                android:backgroundTint="#FFA500" />
+
+                            <View
+                                android:id="@+id/btn_color_8"
+                                style="@style/TextColorCircle"
+                                android:backgroundTint="#00FFFF" />
+
+                            <View
+                                android:id="@+id/btn_color_9"
+                                style="@style/TextColorCircle"
+                                android:backgroundTint="#800080" />
+
+                            <View
+                                android:id="@+id/btn_color_10"
+                                style="@style/TextColorCircle"
+                                android:backgroundTint="#FFC0CB" />
+                        </LinearLayout>
+                    </HorizontalScrollView>
+
+                    <!-- 透明度 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingVertical="4dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="透明度"
+                            android:layout_marginEnd="8dp" />
+
+                        <SeekBar
+                            android:id="@+id/seek_text_alpha"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+
+                        <TextView
+                            android:id="@+id/tv_text_alpha_value"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="100%" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/layout_text_bottom_row"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingTop="6dp">
+
+                        <Button
+                            android:id="@+id/btn_text_mode_cancel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="取消" />
+
+                        <TextView
+                            android:id="@+id/tv_text_mode_title"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="文字"
+                            android:gravity="center"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <Button
+                            android:id="@+id/btn_text_mode_confirm"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="确认" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
         </FrameLayout>
 
         <!-- 下部：普通编辑模式的主工具栏（Tab） -->

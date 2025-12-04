@@ -10,7 +10,7 @@
         android:id="@+id/tv_preview_title"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="大图预览（后续传入真实图片）"
+        android:text="大图预览"
         android:textSize="16sp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"

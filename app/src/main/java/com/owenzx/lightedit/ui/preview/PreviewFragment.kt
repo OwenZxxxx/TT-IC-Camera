@@ -35,6 +35,9 @@ class PreviewFragment : Fragment() {
     private var _binding: FragmentPreviewBinding? = null
     private val binding get() = _binding!!
 
+    // 标记：是否需要“延迟显示控件”
+    private var shouldDelayControls: Boolean = true
+
     // 在 onCreate() 里读取 arguments 里的 Uri
     // 放 onCreate数据（Uri）不依赖 View，即便 Fragment 的 View 多次销毁/重建（切换 Tab 之类），photoUri 仍然可用
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,6 +50,11 @@ class PreviewFragment : Fragment() {
             .inflateTransition(R.transition.transition_image_shared)
         sharedElementEnterTransition = transition
         sharedElementReturnTransition = transition
+
+        // 如果是配置变化恢复（比如旋转屏幕），不再延迟控件
+        if (savedInstanceState != null) {
+            shouldDelayControls = false
+        }
 
         // 等图片布局好了再开启动画，避免“直接跳”过去的感觉
         postponeEnterTransition()
@@ -65,15 +73,23 @@ class PreviewFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // 保证根布局透明，不抢背景
+        binding.layoutPreviewRoot.setBackgroundResource(android.R.color.transparent)
+
         // 保证与缩略图使用相同的 transitionName（Uri）
         binding.imagePreview.transitionName = photoUri.toString()
 
         // 显示这张图片
         binding.imagePreview.setImageURI(photoUri)
 
-        // 在动画期间，先让标题栏和底部按钮隐藏（透明）
-        binding.layoutPreviewHeader.alpha = 0f
-        binding.btnGoEdit.alpha = 0f
+        // ✅ 只有“首进预览且需要动画”的时候才把控件设为透明
+        if (shouldDelayControls) {
+            binding.layoutPreviewHeader.alpha = 0f
+            binding.btnGoEdit.alpha = 0f
+        } else {
+            binding.layoutPreviewHeader.alpha = 1f
+            binding.btnGoEdit.alpha = 1f
+        }
 
         // 等 imagePreview 测量 & 绘制完成后再启动过渡动画
         binding.imagePreview.doOnPreDraw {
@@ -91,7 +107,7 @@ class PreviewFragment : Fragment() {
                 .beginTransaction()
                 .replace(
                     R.id.fragment_container_view,
-                    EditorFragment.newInstance(photoUri) // 把同一张 Uri 传给编辑页
+                    EditorFragment.newInstance(photoUri, true) // 把同一张 Uri 传给编辑页
                 )
                 .addToBackStack(null)
                 .commit()
@@ -101,17 +117,18 @@ class PreviewFragment : Fragment() {
         (sharedElementEnterTransition as? Transition)?.addListener(
             object : Transition.TransitionListener {
                 override fun onTransitionEnd(transition: Transition) {
-                    // 动画结束，淡入header和按钮
-                    binding.layoutPreviewHeader.animate()
-                        .alpha(1f)
-                        .setDuration(150)
-                        .start()
-
-                    binding.btnGoEdit.animate()
-                        .alpha(1f)
-                        .setDuration(150)
-                        .start()
-
+                    if (shouldDelayControls) {
+                        shouldDelayControls = false  // 之后不再延迟控件
+                        // 动画结束，淡入header和按钮
+                        binding.layoutPreviewHeader.animate()
+                            .alpha(1f)
+                            .setDuration(150)
+                            .start()
+                        binding.btnGoEdit.animate()
+                            .alpha(1f)
+                            .setDuration(150)
+                            .start()
+                    }
                     transition.removeListener(this)
                 }
 

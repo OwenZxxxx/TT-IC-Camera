@@ -51,6 +51,8 @@ dependencies {
     implementation("androidx.viewpager2:viewpager2:1.1.0")
     // implement recyclerview
     implementation("androidx.recyclerview:recyclerview:1.3.2")
+    // implement animation transition
+    implementation("androidx.transition:transition:1.4.1")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

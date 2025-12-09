@@ -1,34 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/layout_preview_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:background="@android:color/transparent"
+    tools:context=".ui.preview.PreviewFragment">
 
-    <!-- 标题 -->
-    <TextView
-        android:id="@+id/tv_preview_title"
+    <!-- 顶部标题栏：左返回，中标题 -->
+    <LinearLayout
+        android:id="@+id/layout_preview_header"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="大图预览"
-        android:textSize="16sp"
+        android:orientation="horizontal"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp"
+        android:gravity="center_vertical"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent">
 
-    <!-- 大图 -->
+        <!-- 左返回按钮：尺寸 / 背景 -->
+        <ImageButton
+            android:id="@+id/btn_preview_back"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/ic_back" />
+
+        <!-- 中间标题 -->
+        <TextView
+            android:id="@+id/tv_preview_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="大图预览"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:gravity="center_horizontal" />
+
+        <!-- 右侧占位 View：保证标题视觉上居中（不需要保存按钮） -->
+        <View
+            android:id="@+id/view_preview_right_placeholder"
+            android:layout_width="36dp"
+            android:layout_height="36dp" />
+    </LinearLayout>
+
+    <!-- 中间大图：顶边改为贴在 header 底部 -->
     <ImageView
         android:id="@+id/image_preview"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:src="@mipmap/ic_launcher"
         android:scaleType="fitCenter"
-        app:layout_constraintTop_toBottomOf="@id/tv_preview_title"
+        app:layout_constraintTop_toBottomOf="@id/layout_preview_header"
         app:layout_constraintBottom_toTopOf="@id/btn_go_edit"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:src="@drawable/ic_launcher_foreground" />
 
-    <!-- 下方编辑按钮 -->
+    <!-- 编辑按钮 -->
     <Button
         android:id="@+id/btn_go_edit"
         android:layout_width="0dp"

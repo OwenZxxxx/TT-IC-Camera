@@ -5,10 +5,13 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.doOnPreDraw
 import androidx.fragment.app.Fragment
+import androidx.transition.Transition
 import com.owenzx.lightedit.R
 import com.owenzx.lightedit.databinding.FragmentPreviewBinding
 import com.owenzx.lightedit.ui.editor.EditorFragment
+import androidx.transition.TransitionInflater
 
 class PreviewFragment : Fragment() {
 
@@ -38,6 +41,15 @@ class PreviewFragment : Fragment() {
         super.onCreate(savedInstanceState)
         // 从 arguments 中取出 Uri。若没传会抛异常，说明调用方没按规范来。
         photoUri = requireArguments().getParcelable(ARG_PHOTO_URI)!!
+
+        // 只配置共享元素动画，不要额外的 enter/return 动画去“盖背景”
+        val transition = TransitionInflater.from(requireContext())
+            .inflateTransition(R.transition.transition_image_shared)
+        sharedElementEnterTransition = transition
+        sharedElementReturnTransition = transition
+
+        // 等图片布局好了再开启动画，避免“直接跳”过去的感觉
+        postponeEnterTransition()
     }
 
     override fun onCreateView(
@@ -53,10 +65,27 @@ class PreviewFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // 1. 显示这张图片（后面可以加 Glide / 手写缩略图优化等)
+        // 保证与缩略图使用相同的 transitionName（Uri）
+        binding.imagePreview.transitionName = photoUri.toString()
+
+        // 显示这张图片
         binding.imagePreview.setImageURI(photoUri)
 
-        // 2. 点击按钮：把同一张 Uri 丢给 EditorFragment
+        // 在动画期间，先让标题栏和底部按钮隐藏（透明）
+        binding.layoutPreviewHeader.alpha = 0f
+        binding.btnGoEdit.alpha = 0f
+
+        // 等 imagePreview 测量 & 绘制完成后再启动过渡动画
+        binding.imagePreview.doOnPreDraw {
+            startPostponedEnterTransition()
+        }
+
+        // 返回按钮：退回到相册页
+        binding.btnPreviewBack.setOnClickListener {
+            parentFragmentManager.popBackStack()
+        }
+
+        // 点击按钮：把同一张 Uri 丢给 EditorFragment
         binding.btnGoEdit.setOnClickListener {
             parentFragmentManager
                 .beginTransaction()
@@ -67,6 +96,32 @@ class PreviewFragment : Fragment() {
                 .addToBackStack(null)
                 .commit()
         }
+
+        // // 监听共享元素动画结束，结束后再淡入顶部 & 底部 UI
+        (sharedElementEnterTransition as? Transition)?.addListener(
+            object : Transition.TransitionListener {
+                override fun onTransitionEnd(transition: Transition) {
+                    // 动画结束，淡入header和按钮
+                    binding.layoutPreviewHeader.animate()
+                        .alpha(1f)
+                        .setDuration(150)
+                        .start()
+
+                    binding.btnGoEdit.animate()
+                        .alpha(1f)
+                        .setDuration(150)
+                        .start()
+
+                    transition.removeListener(this)
+                }
+
+                override fun onTransitionStart(transition: Transition) {}
+                override fun onTransitionCancel(transition: Transition) {}
+                override fun onTransitionPause(transition: Transition) {}
+                override fun onTransitionResume(transition: Transition) {}
+            }
+        )
+
     }
 
     override fun onDestroyView() {

@@ -15,6 +15,8 @@ import com.owenzx.lightedit.ui.album.all.AllPhotosAdapter
 import com.owenzx.lightedit.ui.editor.EditorFragment
 import com.owenzx.lightedit.ui.preview.PreviewFragment
 import java.util.concurrent.Executors
+import android.widget.ImageView
+import androidx.transition.TransitionInflater
 
 class FolderDetailFragment : Fragment() {
 
@@ -74,8 +76,8 @@ class FolderDetailFragment : Fragment() {
             onItemClick = { photo ->
                 openEditor(photo.uri)
             },
-            onPreviewClick = { photo ->
-                openPreview(photo.uri)
+            onPreviewClick = { photo, sharedImageView ->
+                openPreview(photo.uri, sharedImageView)
             }
         )
 
@@ -136,12 +138,16 @@ class FolderDetailFragment : Fragment() {
             .commit()
     }
 
-    private fun openPreview(uri: Uri) {
+    private fun openPreview(uri: Uri, sharedImageView: ImageView) {
         val fm = requireActivity().supportFragmentManager
+        val fragment = PreviewFragment.newInstance(uri)
+
         fm.beginTransaction()
+            .setReorderingAllowed(true)
+            .addSharedElement(sharedImageView, sharedImageView.transitionName)
             .replace(
                 R.id.fragment_container_view,
-                PreviewFragment.newInstance(uri)
+                fragment
             )
             .addToBackStack(null)
             .commit()

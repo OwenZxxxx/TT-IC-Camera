@@ -27,16 +27,19 @@ class AlbumFragment: Fragment() {
     // Tab 标题
     private val tabTitles = listOf("全部图片", "按文件夹")
 
+    private var hasShownGrantedToast = false
+
     // 注册权限请求 launcher
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            Toast.makeText(requireContext(), "已获得相册读取权限", Toast.LENGTH_SHORT).show()
-            // 后面接入真数据时，可以在这里触发数据加载
+            if (!hasShownGrantedToast) {
+                Toast.makeText(requireContext(), "已获得相册读取权限", Toast.LENGTH_SHORT).show()
+                hasShownGrantedToast = true
+            }
         } else {
             Toast.makeText(requireContext(), "没有相册权限，将无法加载本地图片", Toast.LENGTH_LONG).show()
-            // 后面可以在这里显示“无权限”占位 UI
         }
     }
 
@@ -99,8 +102,7 @@ class AlbumFragment: Fragment() {
 
         if (granted) {
             // 已有权限：现在还用假数据，先提示一下
-            // 后面会在这里调用：加载真实 MediaStore 数据
-            Toast.makeText(context, "相册权限已授予", Toast.LENGTH_SHORT).show()
+            // Toast.makeText(context, "相册权限已授予", Toast.LENGTH_SHORT).show()
         } else {
             // 没权限：弹出请求框
             requestPermissionLauncher.launch(permission)

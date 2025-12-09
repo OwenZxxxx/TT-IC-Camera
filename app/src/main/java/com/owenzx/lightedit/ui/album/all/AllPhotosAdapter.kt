@@ -7,11 +7,12 @@ import androidx.recyclerview.widget.RecyclerView
 import com.owenzx.lightedit.data.album.PhotoItem
 import com.owenzx.lightedit.databinding.ItemPhotoGridBinding
 import com.owenzx.lightedit.core.image.ThumbnailLoader
+import android.widget.ImageView
 
 class AllPhotosAdapter(
     private var items: List<PhotoItem>,
     private val onItemClick: (PhotoItem) -> Unit,
-    private val onPreviewClick: (PhotoItem) -> Unit
+    private val onPreviewClick: (photo: PhotoItem, sharedImageView: ImageView) -> Unit
 ) : RecyclerView.Adapter<AllPhotosAdapter.PhotoViewHolder>() {
 
     inner class PhotoViewHolder(
@@ -35,6 +36,9 @@ class AllPhotosAdapter(
                 targetSizePx = size
             )
 
+            // 为每个缩略图设置唯一的 transitionName（与 PreviewFragment 一致）
+            binding.imageThumbnail.transitionName = photo.uri.toString()
+
             // 点击图片区域：进入编辑
             binding.imageThumbnail.setOnClickListener {
                 onItemClick(photo)
@@ -42,7 +46,7 @@ class AllPhotosAdapter(
 
             // 点击右下角预览 icon：进入预览
             binding.iconPreview.setOnClickListener {
-                onPreviewClick(photo)
+                onPreviewClick(photo, binding.imageThumbnail)
             }
         }
     }

@@ -16,6 +16,9 @@ import com.owenzx.lightedit.databinding.FragmentAllPhotosBinding
 import com.owenzx.lightedit.ui.editor.EditorFragment
 import com.owenzx.lightedit.ui.preview.PreviewFragment
 import java.util.concurrent.Executors
+import android.widget.ImageView
+import androidx.transition.TransitionInflater
+
 
 class AllPhotosFragment : Fragment() {
 
@@ -60,7 +63,7 @@ class AllPhotosFragment : Fragment() {
         adapter = AllPhotosAdapter(
             emptyList(),
             onItemClick = { photo -> openEditor(photo) },
-            onPreviewClick = { photo -> openPreview(photo) }
+            onPreviewClick = { photo, sharedImageView -> openPreview(photo, sharedImageView) }
         )
 
         binding.recyclerAllPhotos.layoutManager =
@@ -81,12 +84,18 @@ class AllPhotosFragment : Fragment() {
     }
 
     // 打开预览界面
-    private fun openPreview(photo: PhotoItem) {
+    private fun openPreview(photo: PhotoItem, sharedImageView: ImageView) {
         val fm = requireActivity().supportFragmentManager
+        val fragment = PreviewFragment.newInstance(photo.uri)
+
         fm.beginTransaction()
+            .setReorderingAllowed(true) // 保证过渡正确执行
+            // 添加共享元素，从缩略图平滑过渡到预览页大图
+            .addSharedElement(sharedImageView, sharedImageView.transitionName)
             .replace(
                 R.id.fragment_container_view,
-                PreviewFragment.newInstance(photo.uri))
+                fragment
+            )
             .addToBackStack(null)
             .commit()
     }

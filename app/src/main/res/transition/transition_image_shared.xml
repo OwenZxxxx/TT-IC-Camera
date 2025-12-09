@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<transitionSet xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 位置、大小变化 -->
+    <changeBounds />
+
+    <!-- 缩放、旋转变化 -->
+    <changeTransform />
+
+    <!-- 图片内部缩放类型变化 centerCrop / fitCenter -->
+    <changeImageTransform />
+
+</transitionSet>

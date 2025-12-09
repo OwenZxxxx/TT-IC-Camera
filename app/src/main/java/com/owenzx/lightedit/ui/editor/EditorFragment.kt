@@ -21,6 +21,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.SeekBar
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import com.owenzx.lightedit.core.bitmap.ImageFilters
 import com.owenzx.lightedit.databinding.FragmentEditorBinding
 import com.owenzx.lightedit.ui.editor.crop.AspectRatioMode
 import com.owenzx.lightedit.ui.editor.text.TextOverlayView
@@ -30,11 +31,13 @@ class EditorFragment : Fragment() {
 
     companion object {
         private const val ARG_PHOTO_URI = "arg_photo_uri"
+        private const val ARG_FROM_PREVIEW = "arg_from_preview"
 
-        fun newInstance(uri: Uri): EditorFragment {
+        fun newInstance(uri: Uri, fromPreview: Boolean = false): EditorFragment {
             return EditorFragment().apply {
                 arguments = Bundle().apply {
                     putParcelable(ARG_PHOTO_URI, uri)
+                    putBoolean(ARG_FROM_PREVIEW, fromPreview)
                 }
             }
         }
@@ -46,12 +49,16 @@ class EditorFragment : Fragment() {
         CROP,
         ROTATE,
         ADJUST,
-        TEXT
+        TEXT,
+        FILTER
     }
 
     private var currentMode: EditorMode = EditorMode.NORMAL
 
     private lateinit var photoUri: Uri
+
+    // 记录是否是从大图预览页面进来的
+    private var enterFromPreview: Boolean = false
 
     private var _binding: FragmentEditorBinding? = null
     private val binding get() = _binding!!
@@ -83,10 +90,26 @@ class EditorFragment : Fragment() {
     // 用于保存图片的后台线程池（单线程即可）
     private val ioExecutor = Executors.newSingleThreadExecutor()
 
+    // ==== 滤镜相关 ====
+    // 是否处于滤镜模式
+    private var inFilterMode: Boolean = false
+
+    // 进入滤镜模式时的原始 Bitmap（用于取消恢复）
+    private var filterBaseBitmap: Bitmap? = null
+
+    // 当前滤镜预览出来的位图
+    private var filterPreviewBitmap: Bitmap? = null
+
+    // 当前选中的滤镜类型，默认原图
+    private var currentFilter: ImageFilters.FilterType = ImageFilters.FilterType.ORIGINAL
+
+    // 滤镜计算线程池
+    private val filterExecutor = Executors.newSingleThreadExecutor()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         photoUri = requireArguments().getParcelable(ARG_PHOTO_URI)!!
+        enterFromPreview = requireArguments().getBoolean(ARG_FROM_PREVIEW, false)
     }
 
     override fun onCreateView(
@@ -135,6 +158,8 @@ class EditorFragment : Fragment() {
 
                 binding.cropOverlayView.visibility = View.GONE
 
+                binding.layoutFilterControls.visibility = View.GONE
+
                 // 文字：退出可编辑状态，不画虚线框
                 binding.viewDimBackground.visibility = View.GONE
                 binding.layoutTextEditBar.visibility = View.GONE
@@ -160,6 +185,8 @@ class EditorFragment : Fragment() {
 
                 binding.cropOverlayView.visibility = View.VISIBLE
 
+                binding.layoutFilterControls.visibility = View.GONE
+
                 // 文字工具关闭
                 binding.viewDimBackground.visibility = View.GONE
                 binding.layoutTextEditBar.visibility = View.GONE
@@ -184,6 +211,8 @@ class EditorFragment : Fragment() {
 
                 binding.cropOverlayView.visibility = View.GONE
 
+                binding.layoutFilterControls.visibility = View.GONE
+
                 binding.viewDimBackground.visibility = View.GONE
                 binding.layoutTextEditBar.visibility = View.GONE
                 binding.layoutTextStylePanel.visibility = View.GONE
@@ -207,6 +236,32 @@ class EditorFragment : Fragment() {
 
                 binding.cropOverlayView.visibility = View.GONE
 
+                binding.layoutFilterControls.visibility = View.GONE
+
+                binding.viewDimBackground.visibility = View.GONE
+                binding.layoutTextEditBar.visibility = View.GONE
+                binding.layoutTextStylePanel.visibility = View.GONE
+                binding.textOverlayView.isTextToolActive = false
+            }
+
+            EditorMode.FILTER -> {
+                binding.layoutEditorHeader.visibility = View.GONE
+
+                binding.layoutEditorRoot.setBackgroundColor(Color.BLACK)
+                binding.editorCanvasContainer.setBackgroundColor(Color.BLACK)
+                binding.layoutBottomPanel.setBackgroundColor(Color.BLACK)
+
+                binding.layoutEditorToolbar.visibility = View.GONE
+                binding.layoutCropControls.visibility = View.GONE
+                binding.layoutRotateControls.visibility = View.GONE
+                binding.layoutAdjustControls.visibility = View.GONE
+                binding.layoutTextControls.visibility = View.GONE
+
+                binding.layoutFilterControls.setBackgroundColor(Color.WHITE)
+                showToolbarWithSlideUp(binding.layoutFilterControls)
+
+                binding.cropOverlayView.visibility = View.GONE
+
                 binding.viewDimBackground.visibility = View.GONE
                 binding.layoutTextEditBar.visibility = View.GONE
                 binding.layoutTextStylePanel.visibility = View.GONE
@@ -225,6 +280,8 @@ class EditorFragment : Fragment() {
                 binding.layoutCropControls.visibility = View.GONE
                 binding.layoutRotateControls.visibility = View.GONE
                 binding.layoutAdjustControls.visibility = View.GONE
+
+                binding.layoutFilterControls.visibility = View.GONE
 
                 // 先设成白底，然后用统一的卡片上滑动画
                 binding.layoutTextControls.setBackgroundColor(Color.WHITE)
@@ -289,8 +346,17 @@ class EditorFragment : Fragment() {
                         Toast.LENGTH_SHORT
                     ).show()
 
-                    // 返回上一页（相册界面）
-                    parentFragmentManager.popBackStack()
+                    // 从「大图预览 -> 编辑」进来时，保存后希望直接回到相册：
+                    // 依次弹出 Editor 和 Preview 两层
+                    val fm = parentFragmentManager
+                    if (enterFromPreview) {
+                        // 从 预览 -> 编辑 进来的：弹 Editor + Preview，回到相册
+                        fm.popBackStack() // Editor
+                        fm.popBackStack() // Preview
+                    } else {
+                        // 从 相册 -> 编辑 直接进来的：只弹 Editor，回到相册
+                        fm.popBackStack()
+                    }
 
                 } else {
                     Toast.makeText(
@@ -317,6 +383,11 @@ class EditorFragment : Fragment() {
         // 普通工具栏：调色
         binding.btnToolAdjust.setOnClickListener {
             enterAdjustMode()
+        }
+
+        // 普通工具栏：滤镜
+        binding.btnToolFilter.setOnClickListener {
+            enterFilterMode()
         }
 
         // 普通工具栏：文字
@@ -508,6 +579,34 @@ class EditorFragment : Fragment() {
 
                 else -> false
             }
+        }
+
+        // ===== 滤镜按钮 =====
+        binding.btnFilterOriginal.setOnClickListener {
+            applyFilterPreview(ImageFilters.FilterType.ORIGINAL)
+        }
+        binding.btnFilterBw.setOnClickListener {
+            applyFilterPreview(ImageFilters.FilterType.BLACK_WHITE)
+        }
+        binding.btnFilterVintage.setOnClickListener {
+            applyFilterPreview(ImageFilters.FilterType.VINTAGE)
+        }
+        binding.btnFilterFresh.setOnClickListener {
+            applyFilterPreview(ImageFilters.FilterType.FRESH)
+        }
+        binding.btnFilterWarm.setOnClickListener {
+            applyFilterPreview(ImageFilters.FilterType.WARM)
+        }
+        binding.btnFilterCool.setOnClickListener {
+            applyFilterPreview(ImageFilters.FilterType.COOL)
+        }
+
+        // 滤镜：取消 / 确认
+        binding.btnFilterCancel.setOnClickListener {
+            exitFilterMode(applyChanges = false)
+        }
+        binding.btnFilterConfirm.setOnClickListener {
+            exitFilterMode(applyChanges = true)
         }
 
         // 文本交互：双击文字框 -> 进入内容编辑
@@ -870,9 +969,116 @@ class EditorFragment : Fragment() {
         updateUiForMode(EditorMode.NORMAL)
     }
 
+    // 滤镜
+    private fun enterFilterMode() {
+        if (inFilterMode) return
+
+        // 进入滤镜前，收尾其它模式（都用确认，以当前画面为基准）
+        if (inCropMode) exitCropMode()
+        if (inRotateMode) exitRotateMode(applyChanges = true)
+        if (inAdjustMode) exitAdjustMode(applyChanges = true)
+
+        val drawable = binding.imageEditCanvas.drawable as? BitmapDrawable
+        val currentBitmap = drawable?.bitmap
+        if (currentBitmap == null) {
+            Toast.makeText(requireContext(), "没有可应用滤镜的图片", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 备份进入滤镜时的原始图，用于取消恢复
+        filterBaseBitmap?.let { bmp ->
+            if (!bmp.isRecycled && bmp != currentBitmap) {
+                bmp.recycle()
+            }
+        }
+        filterBaseBitmap = currentBitmap.copy(Bitmap.Config.ARGB_8888, true)
+        filterPreviewBitmap = null
+        currentFilter = ImageFilters.FilterType.ORIGINAL
+        inFilterMode = true
+
+        updateUiForMode(EditorMode.FILTER)
+    }
+
+    private fun applyFilterPreview(type: ImageFilters.FilterType) {
+        if (!inFilterMode) return
+        val base = filterBaseBitmap ?: return
+
+        currentFilter = type
+
+        filterExecutor.execute {
+            val filtered = if (type == ImageFilters.FilterType.ORIGINAL) {
+                base.copy(Bitmap.Config.ARGB_8888, true)
+            } else {
+                ImageFilters.applyFilter(base, type)
+            }
+
+            binding.imageEditCanvas.post {
+                // 回收旧预览（不要回收 base）
+                filterPreviewBitmap?.let { old ->
+                    if (old != base && !old.isRecycled) {
+                        old.recycle()
+                    }
+                }
+                filterPreviewBitmap = filtered
+
+                binding.imageEditCanvas.setAutoInitFitEnabled(true)
+                binding.imageEditCanvas.setImageBitmap(filtered)
+                binding.imageEditCanvas.setAutoInitFitEnabled(false)
+            }
+        }
+    }
+
+    private fun exitFilterMode(applyChanges: Boolean) {
+        if (!inFilterMode) return
+        inFilterMode = false
+
+        val base = filterBaseBitmap
+        val preview = filterPreviewBitmap
+        val currentDrawable = binding.imageEditCanvas.drawable as? BitmapDrawable
+        val currentBitmap = currentDrawable?.bitmap
+
+        if (!applyChanges) {
+            // 取消：恢复进入滤镜时的原图
+            if (base != null && !base.isRecycled) {
+                binding.imageEditCanvas.setAutoInitFitEnabled(true)
+                binding.imageEditCanvas.setImageBitmap(base)
+                binding.imageEditCanvas.setAutoInitFitEnabled(false)
+            }
+
+            // 回收预览图（注意别回收当前正在显示的）
+            if (preview != null &&
+                preview != base &&
+                preview != currentBitmap &&
+                !preview.isRecycled
+            ) {
+                preview.recycle()
+            }
+
+            // 不回收 base，因为现在它已经作为画布上的当前图之一了
+        } else {
+            // 确认：当前画面就是最终滤镜结果（preview 或 base）
+            // 回收备份 base（如果它不是当前显示的那一张）
+            if (base != null &&
+                base != currentBitmap &&
+                !base.isRecycled
+            ) {
+                base.recycle()
+            }
+            // preview 不回收，因为当前界面还在用
+        }
+
+        filterBaseBitmap = null
+        filterPreviewBitmap = null
+
+        // 回到普通模式
+        updateUiForMode(EditorMode.NORMAL)
+    }
+
+
+
     // ---- 文字相关 ----
 
-    // 可选：如果你想在某些地方主动加一个默认文字，可以调用这个
+    // 加一个默认文字
     private fun addDefaultTextElement() {
         binding.textOverlayView.addTextAtCenter("双击编辑文字\n支持换行展示")
     }
@@ -1073,6 +1279,15 @@ class EditorFragment : Fragment() {
                 }
             }
             adjustBackupBitmap = null
+
+            filterBaseBitmap?.let { bmp ->
+                if (bmp != currentBitmap && !bmp.isRecycled) {
+                    bmp.recycle()
+                }
+            }
+            filterBaseBitmap = null
+            filterPreviewBitmap = null
+
         } else {
             rotateBackupBitmap = null
             adjustBackupBitmap = null

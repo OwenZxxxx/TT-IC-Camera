@@ -1,12 +1,11 @@
-# LightEdit – Android 图片编辑应用（TT-IC-Camera 客户端工程训练营考察作业）
+# LightEdit – Android 图片编辑应用（TT-IC-Camera 客户端工程训练营）
 
-本项目是 **「客户端工程训练营考察作业（TT-IC-Camera）」** 的 Android 端实现，目标是开发一款基于 Kotlin 的轻量级图片编辑 App，覆盖从 **相册选图 / 相机拍照 → 图像编辑 → 保存到相册（带水印）** 的完整链路。
+本项目是 **「客户端工程训练营（TT-IC-Camera）」** 的 Android 端实现，目标是开发一款基于 Kotlin 的轻量级图片编辑 App，覆盖从 **相册选图 / 相机拍照 → 图像编辑 → 保存到相册（带水印）** 的完整链路。
 
 项目除了实现要求中的所有核心功能外，还重点体现：
 
-- 工程化流程：Git 工作流、规范化分支、Issue & 看板管理  
+- 工程化流程：Git 工作流、规范化分支
 - 模块化架构：UI / Data / Editor / Core 分层  
-- 文档与设计：需求、架构、UML、测试、学习总结等完整技术文档  
 
 > 截止时间：**2024-12-04**（在此之前完成全部功能、测试与集成，并提交 GitHub 仓库 + 文档 + 视频）
 
@@ -35,269 +34,271 @@
 
 ## 2. 技术栈与架构
 
-### 2.1 技术栈
+- 开发语言：Kotlin
+- 开发工具：Android Studio
+- 最低系统版本：Android 10（API 29）
+- 架构模式：单 Activity + 多 Fragment
+- UI 技术：原生 View、ViewBinding、RecyclerView、自定义 View
+- 系统能力：
+  - MediaStore 相册查询与图片保存
+  - 系统相机拍照（Activity Result API）
+  - 运行时权限（相册 / 相机 / 存储）
 
-- **平台**：Android（目标兼容 Android 10 及以上）
-- **开发语言**：Kotlin
-- **IDE & 工具**：Android Studio, Gradle
-- **核心框架 / 组件**
-  - Activity + Jetpack Fragment
-  - ViewModel（用于状态管理，视复杂度选择性使用）
-  - MediaStore（相册读取与保存）
-  - CameraX（推荐，用于相机拍照）
-- **第三方库（仅用于辅助，不负责核心编辑逻辑）**
-  - Coil / Glide：相册缩略图异步加载（裁剪为正方形）
-  - 运行时权限库（如有使用，会在技术文档中说明）
-- **手动实现部分**
-  - 相册核心逻辑（相册扫描、分组、缩略图处理）
-  - 编辑算法：裁剪、旋转、翻转、亮度/对比度、文字叠加
-  - 基本滤镜（如实现加分项）
-  - 合成与保存（含水印绘制）
+说明：项目中未使用第三方图像处理库，裁剪、缩放、旋转、亮度/对比度、文字叠加、合成保存均为手动实现。仅使用 AndroidX、Material 等官方支持库。
 
 > 关于 iOS 端：作业要求中包含 iOS 兼容性，但本仓库专注 **Android 客户端实现**。iOS 相关内容将只在技术文档中进行架构和跨平台设计层面的简要讨论，不做实际实现。
 
 ---
 
-## 3. 功能概览
+## 3. 项目结构概览
 
-详细功能需求请参考 `docs/requirements.md`，这里简要列出核心功能：
+本项目采用「单 Activity + 多 Fragment」架构，结合多个自定义 View、相册数据层、权限与图像加载工具，形成清晰的模块划分。  
+整体结构如下图所示：
 
-### 3.1 核心功能（必做）
+```mermaid
+flowchart TD
 
-1. **相册选图**
-   - 加载本地图片资源；
-   - 两个 Tab：
-     - 全部图片；
-     - 按文件夹归类；
-   - 相册权限申请 + 无权限 / 相册为空等异常处理；
-   - 缩略图异步加载，并裁剪为正方形；
-   - 图片大图预览；
-   - 从单张图片进入编辑界面。
+    MainActivity["MainActivity<br/>应用唯一 Activity，作为导航容器"] --> EntryFragment["EntryFragment<br/>应用入口：相册 / 拍照"]
 
-2. **相机拍照**
-   - 使用 CameraX 或系统相机完成拍照；
-   - 拍照后图片直接导入编辑界面；
-   - 相机权限申请；
-   - 无相机设备异常处理（如部分模拟器）。
+    EntryFragment --> AlbumFragment["AlbumFragment<br/>相册主页（两个 Tab）"]
+    EntryFragment --> CameraCaptureFragment["CameraCaptureFragment<br/>系统相机拍照"]
 
-3. **图片缩放**
-   - 导入图片后自动适配编辑区域；
-   - 支持双指缩放，缩放范围 0.5x – 2x；
-   - 支持拖动平移查看图像细节。
+    AlbumFragment --> AllPhotosFragment["AllPhotosFragment<br/>全部图片"]
+    AlbumFragment --> FolderPhotosFragment["FolderPhotosFragment<br/>按文件夹展示"]
 
-4. **图片裁剪**
-   - 自由裁剪；
-   - 固定比例裁剪：1:1、4:3、16:9、3:4、9:16；
-   - 支持拖动裁剪框调整范围与位置；
-   - 裁剪后图像清晰、无明显畸变。
+    AllPhotosFragment --> PreviewFragment["PreviewFragment<br/>单张大图预览"]
+    FolderPhotosFragment --> FolderDetailFragment["FolderDetailFragment<br/>文件夹内图片列表"]
+    FolderDetailFragment --> PreviewFragment
 
-5. **旋转与翻转**
-   - 90° 顺时针；
-   - 90° 逆时针；
-   - 180° 旋转；
-   - 水平翻转 / 垂直翻转；
-   - 操作实时预览。
+    PreviewFragment --> EditorFragment["EditorFragment<br/>核心编辑器界面"]
+    CameraCaptureFragment --> EditorFragment
 
-6. **亮度与对比度调节**
-   - 亮度范围：-100 ~ 100；
-   - 对比度范围：-50 ~ 150；
-   - 默认值为 0；
-   - 拖动滑条实时更新图像显示。
+    EditorFragment --> ZoomableImageView["ZoomableImageView<br/>图片缩放/平移"]
+    EditorFragment --> CropOverlayView["CropOverlayView<br/>裁剪框视图"]
+    EditorFragment --> TextOverlayView["TextOverlayView<br/>文字叠加视图"]
 
-7. **文字编辑模块**
-   - 在图片上添加文本；
-   - 文本内容可自定义输入，支持换行。
+    %% Data Layer
+    subgraph Data Layer
+        MediaStoreAlbumRepository["MediaStoreAlbumRepository<br/>相册扫描与分组"]
+        ThumbnailLoader["ThumbnailLoader<br/>缩略图异步加载 + LruCache"]
+        MediaPermissionHelper["MediaPermissionHelper<br/>相册/相机权限封装"]
+    end
 
-8. **文字样式调节**
-   - 字体：至少 3 种；
-   - 字号：12–36 号可调；
-   - 颜色：支持 RGB 调色或预设 ≥10 种颜色；
-   - 透明度：50%–100% 可调。
+    AlbumFragment --> MediaStoreAlbumRepository
+    AllPhotosFragment --> MediaStoreAlbumRepository
+    FolderPhotosFragment --> MediaStoreAlbumRepository
 
-9. **文字操作**
-   - 拖动文本到任意位置；
-   - 双指缩放文字；
-   - 旋转文字角度（0–360°）。
+    AllPhotosFragment --> ThumbnailLoader
+    FolderPhotosFragment --> ThumbnailLoader
 
-10. **保存模块**
-    - 编辑完成后保存到本地相册；
-    - 存储权限申请；
-    - 存储失败异常处理（例如空间不足）；
-    - 保存成功时给出明确提示；
-    - 保存时在图像上添加水印文字：**“训练营”**。
+    EditorFragment --> MediaPermissionHelper
+```
 
----
+### 1. MainActivity 模块
+- MainActivity  
+  单 Activity 容器，负责承载所有 Fragment，并协调导航。
 
-### 3.2 加分功能（计划按时间择机实现）
+### 2. Entry（入口）模块
+- EntryFragment  
+  应用主入口界面，包含两个按钮：进入相册 和 拍照编辑。
 
-> 是否实现视进度而定，但架构会预留扩展点。
+### 3. 相册 Album 模块
+- AlbumFragment  
+  相册主界面，包含两个 Tab：全部图片、按文件夹显示。
 
-1. 动画过渡：从相册缩略图到大图预览之间的平滑缩放与位移动画；
-2. 滤镜功能：至少 6 种滤镜（原图、黑白、复古、清新、暖色、冷色），滤镜算法手动实现；
-3. 贴纸功能：≥10 个贴纸，支持拖动、缩放、旋转、删除、层级调整；
-4. 图像拼接：2–4 张图片的横向、纵向、2×2 拼接；
-5. 夜间模式：日间 / 夜间主题切换；
-6. 分享模块：一键分享至抖音（包含失败异常处理）。
+- AllPhotosFragment  
+  加载并展示系统中所有图片。
 
----
+- AllPhotosAdapter  
+  RecyclerView 适配器，用于显示全部图片的缩略图。
 
-## 4. 项目结构（规划）
+- FolderPhotosFragment  
+  加载系统相册并按文件夹分组展示。
 
-> 实际代码结构可能会随开发略有调整，但整体分层不变。
+- FolderPhotosAdapter  
+  展示相册文件夹封面和数量的适配器。
 
-├── ui/                    # 界面层（Activity / Fragment / 自定义 View）
-│   ├── main/              # MainActivity & 导航
-│   ├── album/             # 相册列表 + 文件夹 Tab + 预览
-│   ├── editor/            # 编辑器界面（缩放 / 裁剪 / 调节 / 文字等）
-│   └── common/            # 通用 UI 组件、基类
-│
-├── data/                  # 数据访问层（相册、相机、保存）
-│   ├── album/             # 媒体扫描、分组、缩略图
-│   ├── camera/            # CameraX/相机封装
-│   └── save/              # 保存到相册逻辑
-│
-├── editor/                # 核心编辑逻辑（算法层）
-│   ├── bitmap/            # Bitmap 缩放、裁剪、转换工具
-│   ├── transform/         # 旋转与翻转
-│   ├── adjust/            # 亮度/对比度、滤镜（如实现）
-│   └── overlay/           # 文本、贴纸等前景元素模型与绘制
-│
-└── core/                  # 通用基础设施
-    ├── permissions/       # 权限辅助
-    └── utils/             # 工具类、日志等
+- FolderDetailFragment  
+  显示某一文件夹下所有照片的页面。
 
-详细架构设计与 UML 类图、时序图将记录在：`docs/architecture.md`
+- PreviewFragment  
+  图片预览界面，支持查看大图并进入编辑器。
 
-## 5. 性能与体验目标
+- MediaStoreAlbumRepository  
+  基于 MediaStore 查询手机图片、分组、加载元数据的核心数据层类。
 
-根据作业中的性能评审标准，本项目制定如下性能与体验目标：
+- PhotoItem  
+  单张照片的数据结构，包含 uri、路径、时间等信息。
 
-### 5.1 相册性能
-- 相册页面启动时间 ≤ 1 秒；
-- 滑动过程中保持稳定流畅，帧率 ≥ 30fps；
-- 缩略图采用异步加载 + 正方形裁剪策略，避免一次性加载过多图片引发卡顿；
-- 异步加载过程中提供占位图，避免闪烁。
+- AlbumFolder  
+  相册文件夹的数据结构，包含封面图、文件夹名、数量等信息。
 
-### 5.2 编辑性能
-- 从相册或相机进入编辑界面过程 ≤ 1 秒；
-- 调整亮度/对比度实时响应，延迟 ≤ 0.5 秒；
-- 核心编辑算法（裁剪、旋转、翻转、文字叠加）均采用 Bitmap + Canvas 手动实现，保证可控性与性能。
+### 4. 相机 Camera 模块
+- CameraCaptureFragment  
+  调用系统相机进行拍照，将结果 uri 返回给编辑器。
 
-### 5.3 内存与稳定性
-- 编辑单张 ≤10MB 图片时，App 内存占用 ≤ 200MB；
-- 避免频繁复制 Bitmap，尽可能使用同一张 Bitmap 管理；
-- 全程监控潜在内存泄漏，确保连续编辑 10 张图片不闪退；
-- 图片编辑过程中，严格控制 Bitmap 缓存与及时回收。
+### 5. 编辑 Editor 模块
+- EditorFragment  
+  图片编辑核心界面，管理缩放、裁剪、旋转、亮度、对比度、文字、保存等全部编辑功能。
 
-### 5.4 界面与交互体验
-- 核心按钮醒目，布局清晰；
-- 手势操作（缩放 / 拖动 / 旋转）无明显延迟；
-- 图片编辑操作提供实时预览反馈；
-- 保证横竖屏切换时的自动适配，无布局错位。
+### 6. 编辑视图 View 模块
+- ZoomableImageView  
+  自定义图片缩放控件，实现双指缩放与拖动平移。
+
+### 7. 裁剪 Crop 模块
+- CropOverlayView  
+  裁剪遮罩视图，绘制裁剪框、控制点、半透明区域，并支持拖动与调整大小。
+
+### 8. 文字 Text 模块
+- TextElement  
+  文本元素的数据结构，包含内容、位置、字体、字号、颜色、透明度、缩放、旋转等属性。
+
+- TextOverlayView  
+  文本叠加视图，负责绘制文字、处理点击命中、拖动、缩放、旋转等手势。
+
+### 9. 工具类与辅助模块
+- ThumbnailLoader  
+  后台线程池 + LruCache 的缩略图加载器，高性能加载相册缩略图。
+
+- MediaPermissionHelper  
+  封装相册、相机、存储权限申请与 Android 10+ / 13+ 的适配。
+
+## 4. 核心功能说明
+
+### 4.1 相册选图
+
+- 通过 MediaStore 加载本地图片。  
+- 提供两个 Tab：  
+  1. 全部图片（AllPhotosFragment）  
+  2. 按文件夹分组（FolderPhotosFragment）  
+- 在无权限、相册为空时提供提示。  
+- 使用 ThumbnailLoader 异步加载正方形缩略图，并提供缓存避免卡顿和内存浪费。  
+- 支持点击缩略图进入 PreviewFragment，并可一键进入编辑界面 EditorFragment。
 
 ---
 
-## 6. 工程与 Git 流程
+### 4.2 相机拍照
 
-本项目遵循简化版 Git Flow，以满足工程化、可追溯、可维护等要求。
-
-### 6.1 分支模型
-- main：稳定可演示版本，最终提交所在分支；
-- develop：日常集成分支；
-- feature/*：按功能划分的开发分支，例如：
-  - feature/album-loader
-  - feature/album-preview
-  - feature/camera-capture
-  - feature/editor-crop
-  - feature/editor-transform
-  - feature/editor-text
-  - feature/save-image
-
-### 6.2 Commit Message 规范
-采用简化 Angular 规范：
-- feat：新功能
-- fix：问题修复
-- docs：文档变更
-- refactor：重构
-- chore：工具链或配置修改
-示例：
-feat: implement album media scanning
-fix: correct crop rectangle mapping issue
-
-### 6.3 Pull Request（PR）流程
-1. 每个功能在独立 feature 分支开发；
-2. 生成 PR 合并至 develop；
-3. PR 内容需说明变更内容 + 测试情况；
-4. 通过后删除该 feature 分支。
-
-### 6.4 Tag 策略
-采用语义化版本：
-v1.0.0 - 最终提交版本
-示例：
-git tag -a v1.0.0 -m "Final submission"
-git push origin v1.0.0
-
-详细内容见 `docs/git-workflow.md`。
+- 使用 Activity Result API 调用系统相机拍摄照片。  
+- 成功拍摄后自动跳转到编辑界面。  
+- 处理无相机、权限被拒绝、用户取消等异常情况。  
 
 ---
 
-## 7. 项目计划（倒排至 2024-12-04）
+### 4.3 图片缩放与平移
 
-本项目遵循倒排计划方式，确保在截止日期前完成所有开发、测试、文档与演示。
-
-### 7.1 项目时间线概览
-- 11/24：工程初始化 + Git + 文档
-- 11/24–11/26：相册模块（全部图片、文件夹 Tab、缩略图、大图预览）
-- 11/26–11/27：相机模块（CameraX）
-- 11/27–11/29：编辑核心功能（缩放、裁剪、旋转、翻转）
-- 11/30–12/01：亮度对比度、文字模块
-- 12/02：保存模块 + 水印功能
-- 12/03：测试、优化、性能调优
-- 12/04：UML 文档、测试文档、学习总结、录制视频
-
-### 7.2 详细计划
-完整倒排计划见 `docs/planning.md`。
+- 自定义 ZoomableImageView 组件实现图片可缩放与平移。  
+- 初次加载自动进行 FitCenter 适配。  
+- 双指缩放范围为 0.5x – 2x。  
+- 单指拖动图片浏览细节。  
+- 边界限制逻辑保证图片不会被拖出可视区域。  
 
 ---
 
-## 8. 文档索引（docs/ 目录）
+### 4.4 图片裁剪
 
-本项目文档均位于 docs 目录下：
-
-- requirements.md：详细需求文档（功能要求、性能要求、异常处理）
-- git-workflow.md：分支策略、Commit 规范、PR 规范
-- planning.md：从 11/22–12/04 的完整倒排计划
-- architecture.md：整体架构说明、UML 类图、时序图（开发后期补充）
-- test-plan.md：测试案例、兼容性测试、性能测试（测试阶段补充）
-- learning-summary.md：学习与探索总结（最终提交前补充）
+- 使用 CropOverlayView 绘制裁剪框与遮罩。  
+- 支持裁剪比例：自由裁剪、1:1、4:3、16:9、3:4、9:16。  
+- 支持拖动裁剪框位置、拖动四角进行缩放。  
+- 在 EditorFragment 中根据裁剪框计算并生成最终裁剪后的 Bitmap。  
 
 ---
 
-## 9. 当前进度（2024-11-24）
+### 4.5 旋转与翻转功能
 
-当前处于 **Day 1：工程初始化阶段**，按计划正在进行以下内容：
-
-### 🔨 今日目标（Day 1）
-- 创建 GitHub 仓库；
-- 初始化项目目录结构；
-- 创建 main / develop 分支；
-- 创建 docs 目录；
-- 编写以下文档的初版：
-  - README.md
-  - requirements.md
-  - git-workflow.md
-  - planning.md
-- 创建 GitHub Project 看板；
-- 创建核心 Issue（相册模块、相机模块、编辑功能等）；
-- 创建Wiki page
-- 完成工程化流程的基础搭建，为后续 Android 项目开发打好结构基础。
-
-### 📌 当前状态
-- 正在进行 Day 1 规划中的文档编写与仓库初始化工作；
-- 预计今天将完成所有工程化准备工作，并在 Day 2 开始 Android 工程搭建（Activity + Fragment + 包结构）。
+- 支持以下操作：  
+  - 顺时针旋转 90°  
+  - 逆时针旋转 90°  
+  - 180° 旋转  
+  - 水平翻转  
+  - 垂直翻转  
+- 在进入旋转模式前保存原 Bitmap 的备份，取消时可一键还原。  
+- 确认后回收旧 Bitmap，避免内存泄漏。  
 
 ---
 
-## 10. License
+### 4.6 亮度与对比度调节
 
-本项目为课程作业，不提供公开 License。如需参考，请联系课程导师或按学术规范引用。
+- 提供亮度（-100 ~ +100）和对比度（-50 ~ +150）滑动条。  
+- 调节过程中实时预览显示图像变化。  
+- 使用线性变换对图像像素进行亮度与对比度运算。  
+- 提供“按住查看原图”功能，用于临时查看未调节的效果。  
+- 支持一键重置。  
+
+---
+
+### 4.7 文字编辑模块
+
+- 使用 TextElement 保存每段文字的内容、位置、字体、字号、透明度、颜色、缩放比例、旋转角度等数据。  
+- TextOverlayView 提供文字绘制与手势处理功能。  
+- 支持文字内容自定义输入，并支持换行。  
+- 支持多种字体（至少 3 种）、字号范围 12 - 36、透明度 50% - 100%。  
+- 支持拖动文字位置。  
+- 支持双指缩放文字大小。  
+- 支持旋转文字角度（0° - 360°）。  
+- 支持显示虚线选中框、删除按钮、缩放/旋转控制手柄等操作。  
+
+---
+
+### 4.8 保存图片（含水印）
+
+- 将底图与文字叠加层合成为最终 Bitmap。  
+- 自动在右下角绘制“训练营”水印。  
+- 使用 MediaStore 保存到系统相册，适配 Android Q 及以上版本。  
+- 保存成功或失败均提供 Toast 提示。  
+
+---
+
+## 5. 性能与稳定性设计
+
+为了满足作业对性能的严格要求，项目采用以下优化策略：
+
+### 5.1 相册性能优化
+
+- MediaStore 查询在后台线程执行，不阻塞主线程。  
+- 缩略图加载与解码通过线程池异步执行。  
+- 使用 LruCache 缓存缩略图，减少重复解码。  
+- 控制缩略图尺寸防止内存占用过高。  
+
+### 5.2 编辑性能优化
+
+- 图片仅在需要时复制 Bitmap，避免频繁创建大容量 Bitmap。  
+- 各编辑模式均维护独立备份，支持撤销，避免对同一 Bitmap 多次覆盖操作导致失真。  
+- 在 Fragment 的 onDestroyView 中释放所有与界面相关的大图资源。  
+
+### 5.3 兼容性与异常处理
+
+- 完整适配 Android 10+ 的分区存储及相册写入策略。  
+- 处理 Android 13 及以上的媒体权限 READ_MEDIA_IMAGES。  
+- 对无权限、无图片、无相机等情况给出友好提示。  
+
+---
+
+## 6. 运行说明
+
+1. 使用 Android Studio 打开项目工程。  
+2. 连接 Android 10（API 29）及以上设备，或启动对应模拟器。  
+3. 点击运行（Run）。  
+4. 应用启动时会提示授予以下权限：  
+   - 相册访问权限  
+   - 存储写入权限（部分版本自动处理）  
+   - 相机权限（仅拍照时需要）  
+
+---
+
+## 7. Git 工作流说明
+
+本项目使用简化版 Git Flow：
+
+- main：稳定可发布版本  
+- develop：整合日常开发  
+- feature/xxx：按功能模块建立，如 feature/editor-text  
+- hotfix/xxx：基于 main 分支的紧急修复  
+
+详细流程记录在仓库的 git-workflow.md 中。
+
+---
+
+## 8. 说明
+
+本项目仅用于课程学习与作业提交，不用于商业用途。

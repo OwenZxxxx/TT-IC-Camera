@@ -1,4 +1,4 @@
-android studio官⽅开发指南: https://developer.android.com/studio/write
-滑动视图: https://developer.android.google.cn/guide/navigation/navigation-swipe-view-2?hl=zh-cn
-Fragment: https://developer.android.google.cn/guide/fragments/create?hl=zh_cn
-Fragment 全解析: https://blog.csdn.net/weixin_37794278/article/details/149660227
+- android studio官⽅开发指南: https://developer.android.com/studio/write
+- 滑动视图: https://developer.android.google.cn/guide/navigation/navigation-swipe-view-2?hl=zh-cn
+- Fragment: https://developer.android.google.cn/guide/fragments/create?hl=zh_cn
+- Fragment 全解析: https://blog.csdn.net/weixin_37794278/article/details/149660227

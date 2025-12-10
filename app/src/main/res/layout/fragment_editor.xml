@@ -76,6 +76,14 @@
             android:background="#80000000"
             android:visibility="gone" />
 
+        <!-- 贴纸覆盖层 -->
+        <com.owenzx.lightedit.ui.editor.sticker.StickerOverlayView
+            android:id="@+id/sticker_overlay_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clickable="true"
+            android:focusable="true" />
+
         <!-- 中层：文字覆盖层 -->
         <com.owenzx.lightedit.ui.editor.text.TextOverlayView
             android:id="@+id/text_overlay_view"
@@ -842,6 +850,214 @@
                 </LinearLayout>
             </LinearLayout>
 
+
+            <!-- 贴纸模式控制条 -->
+            <LinearLayout
+                android:id="@+id/layout_sticker_controls"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp"
+                android:background="@android:color/transparent"
+                android:visibility="gone">
+
+                <!-- 上面：贴纸选择（至少 10 个） -->
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:overScrollMode="never"
+                    android:paddingVertical="4dp">
+
+                    <LinearLayout
+                        android:id="@+id/layout_sticker_palette"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <!-- 示例：具体贴纸你用 ImageButton + 自己的资源 -->
+                        <ImageButton
+                            android:id="@+id/btn_sticker_1"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/sticker_1"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:layout_marginEnd="8dp" />
+
+                        <ImageButton
+                            android:id="@+id/btn_sticker_2"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/sticker_2"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:layout_marginEnd="8dp" />
+
+                        <ImageButton
+                            android:id="@+id/btn_sticker_3"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/sticker_3"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:layout_marginEnd="8dp" />
+
+                        <ImageButton
+                            android:id="@+id/btn_sticker_4"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/sticker_4"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:layout_marginEnd="8dp" />
+
+                        <ImageButton
+                            android:id="@+id/btn_sticker_5"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/sticker_5"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:layout_marginEnd="8dp" />
+
+                        <ImageButton
+                            android:id="@+id/btn_sticker_6"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/sticker_6"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:layout_marginEnd="8dp" />
+
+                        <ImageButton
+                            android:id="@+id/btn_sticker_7"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/sticker_7"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:layout_marginEnd="8dp" />
+
+
+                        <ImageButton
+                            android:id="@+id/btn_sticker_8"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/sticker_8"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:layout_marginEnd="8dp" />
+
+
+                        <ImageButton
+                            android:id="@+id/btn_sticker_9"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/sticker_9"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:layout_marginEnd="8dp" />
+
+                        <ImageButton
+                            android:id="@+id/btn_sticker_10"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/sticker_10"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:layout_marginEnd="8dp" />
+                        <!-- ... 至少放 10 个 btn_sticker_x -->
+                    </LinearLayout>
+                </HorizontalScrollView>
+
+                <!-- 中间：层级 / 删除 操作行 -->
+                <!-- 中间：层级 / 删除 操作行（改成可横向滑动） -->
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:overScrollMode="never"
+                    android:paddingTop="4dp">
+
+                    <LinearLayout
+                        android:id="@+id/layout_sticker_layer_row"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <Button
+                            android:id="@+id/btn_sticker_delete"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="清空本次" />
+
+                        <Button
+                            android:id="@+id/btn_sticker_layer_down"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="下移一层"
+                            android:layout_marginStart="8dp" />
+
+                        <Button
+                            android:id="@+id/btn_sticker_layer_up"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="上移一层"
+                            android:layout_marginStart="8dp" />
+
+                        <Button
+                            android:id="@+id/btn_sticker_bring_front"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="置顶"
+                            android:layout_marginStart="8dp" />
+
+                        <Button
+                            android:id="@+id/btn_sticker_send_back"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="置底"
+                            android:layout_marginStart="8dp" />
+                    </LinearLayout>
+                </HorizontalScrollView>
+
+
+                <!-- 底部：取消 - 贴纸 - 确认 -->
+                <LinearLayout
+                    android:id="@+id/layout_sticker_bottom_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingTop="6dp">
+
+                    <Button
+                        android:id="@+id/btn_sticker_cancel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="取消" />
+
+                    <TextView
+                        android:id="@+id/tv_sticker_title"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="贴纸"
+                        android:gravity="center"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btn_sticker_confirm"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="确认" />
+                </LinearLayout>
+            </LinearLayout>
+
+
         </FrameLayout>
 
         <!-- 下部：普通编辑模式的主工具栏（Tab） -->
@@ -888,6 +1104,14 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="文字" />
+
+            <Button
+                android:id="@+id/btn_tool_sticker"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="贴纸" />
+
         </LinearLayout>
     </LinearLayout>
 

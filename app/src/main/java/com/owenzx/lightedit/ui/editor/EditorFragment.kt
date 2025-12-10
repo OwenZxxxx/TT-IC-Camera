@@ -3,6 +3,7 @@ package com.owenzx.lightedit.ui.editor
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
@@ -26,6 +27,10 @@ import com.owenzx.lightedit.databinding.FragmentEditorBinding
 import com.owenzx.lightedit.ui.editor.crop.AspectRatioMode
 import com.owenzx.lightedit.ui.editor.text.TextOverlayView
 import java.util.concurrent.Executors
+import com.owenzx.lightedit.ui.editor.sticker.StickerOverlayView
+import com.owenzx.lightedit.R
+
+
 
 class EditorFragment : Fragment() {
 
@@ -50,7 +55,8 @@ class EditorFragment : Fragment() {
         ROTATE,
         ADJUST,
         TEXT,
-        FILTER
+        FILTER,
+        STICKER
     }
 
     private var currentMode: EditorMode = EditorMode.NORMAL
@@ -105,6 +111,12 @@ class EditorFragment : Fragment() {
 
     // 滤镜计算线程池
     private val filterExecutor = Executors.newSingleThreadExecutor()
+
+    // 贴纸模式的状态备份（进入 STICKER 模式时记录，用于取消恢复）
+    private var stickerBackupState: StickerOverlayView.StickerStateSnapshot? = null
+
+
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -165,6 +177,9 @@ class EditorFragment : Fragment() {
                 binding.layoutTextEditBar.visibility = View.GONE
                 binding.layoutTextStylePanel.visibility = View.GONE
                 binding.textOverlayView.isTextToolActive = false
+
+                binding.layoutStickerControls.visibility = View.GONE
+                binding.stickerOverlayView.isStickerToolActive = false
             }
 
             EditorMode.CROP -> {
@@ -192,6 +207,9 @@ class EditorFragment : Fragment() {
                 binding.layoutTextEditBar.visibility = View.GONE
                 binding.layoutTextStylePanel.visibility = View.GONE
                 binding.textOverlayView.isTextToolActive = false
+
+                binding.layoutStickerControls.visibility = View.GONE
+                binding.stickerOverlayView.isStickerToolActive = false
             }
 
             EditorMode.ROTATE -> {
@@ -217,6 +235,9 @@ class EditorFragment : Fragment() {
                 binding.layoutTextEditBar.visibility = View.GONE
                 binding.layoutTextStylePanel.visibility = View.GONE
                 binding.textOverlayView.isTextToolActive = false
+
+                binding.layoutStickerControls.visibility = View.GONE
+                binding.stickerOverlayView.isStickerToolActive = false
             }
 
             EditorMode.ADJUST -> {
@@ -242,6 +263,9 @@ class EditorFragment : Fragment() {
                 binding.layoutTextEditBar.visibility = View.GONE
                 binding.layoutTextStylePanel.visibility = View.GONE
                 binding.textOverlayView.isTextToolActive = false
+
+                binding.layoutStickerControls.visibility = View.GONE
+                binding.stickerOverlayView.isStickerToolActive = false
             }
 
             EditorMode.FILTER -> {
@@ -266,6 +290,9 @@ class EditorFragment : Fragment() {
                 binding.layoutTextEditBar.visibility = View.GONE
                 binding.layoutTextStylePanel.visibility = View.GONE
                 binding.textOverlayView.isTextToolActive = false
+
+                binding.layoutStickerControls.visibility = View.GONE
+                binding.stickerOverlayView.isStickerToolActive = false
             }
 
             EditorMode.TEXT -> {
@@ -296,7 +323,42 @@ class EditorFragment : Fragment() {
 
                 // 激活文字工具
                 binding.textOverlayView.isTextToolActive = true
+
+                binding.layoutStickerControls.visibility = View.GONE
+                binding.stickerOverlayView.isStickerToolActive = false
             }
+
+            EditorMode.STICKER -> {
+                binding.layoutEditorHeader.visibility = View.GONE
+
+                binding.layoutEditorRoot.setBackgroundColor(Color.BLACK)
+                binding.editorCanvasContainer.setBackgroundColor(Color.BLACK)
+                binding.layoutBottomPanel.setBackgroundColor(Color.BLACK)
+
+                binding.layoutEditorToolbar.visibility = View.GONE
+                binding.layoutCropControls.visibility = View.GONE
+                binding.layoutRotateControls.visibility = View.GONE
+                binding.layoutAdjustControls.visibility = View.GONE
+                binding.layoutTextControls.visibility = View.GONE
+                binding.layoutFilterControls.visibility = View.GONE
+
+                binding.layoutStickerControls.setBackgroundColor(Color.WHITE)
+                showToolbarWithSlideUp(binding.layoutStickerControls)
+
+                binding.cropOverlayView.visibility = View.GONE
+
+                // 关闭文字工具 + 取消选中
+                binding.viewDimBackground.visibility = View.GONE
+                binding.layoutTextEditBar.visibility = View.GONE
+                binding.layoutTextStylePanel.visibility = View.GONE
+                binding.textOverlayView.isTextToolActive = false
+                binding.textOverlayView.clearSelection()
+
+                // 开启贴纸工具
+                binding.stickerOverlayView.isStickerToolActive = true
+            }
+
+
         }
     }
 
@@ -411,6 +473,21 @@ class EditorFragment : Fragment() {
                 binding.textOverlayView.ensureOneSelected()
             }
         }
+
+        // 普通工具栏： 贴纸
+        binding.btnToolSticker.setOnClickListener {
+            // 其他模式收尾（确认当前图像状态）
+            if (inCropMode) exitCropMode()
+            if (inRotateMode) exitRotateMode(applyChanges = true)
+            if (inAdjustMode) exitAdjustMode(applyChanges = true)
+
+            // 备份当前贴纸状态
+            stickerBackupState = binding.stickerOverlayView.snapshotState()
+
+            // 切换到 STICKER 模式
+            updateUiForMode(EditorMode.STICKER)
+        }
+
 
         // 裁剪：取消 / 确认
         binding.btnCropCancel.setOnClickListener {
@@ -710,11 +787,69 @@ class EditorFragment : Fragment() {
             // 退出 TEXT 模式（只收 UI，不再改图片）
             exitTextMode()
         }
+
         binding.btnTextModeConfirm.setOnClickListener {
             // 确认就不恢复 snapshot，直接保留当前文字状态
             textBackupState = null
             exitTextMode()
         }
+
+        // 贴纸按钮
+        binding.btnSticker1.setOnClickListener { addStickerFromRes(R.drawable.sticker_1) }
+        binding.btnSticker2.setOnClickListener { addStickerFromRes(R.drawable.sticker_2) }
+        binding.btnSticker3.setOnClickListener { addStickerFromRes(R.drawable.sticker_3) }
+        binding.btnSticker4.setOnClickListener { addStickerFromRes(R.drawable.sticker_4) }
+        binding.btnSticker5.setOnClickListener { addStickerFromRes(R.drawable.sticker_5) }
+        binding.btnSticker6.setOnClickListener { addStickerFromRes(R.drawable.sticker_6) }
+        binding.btnSticker7.setOnClickListener { addStickerFromRes(R.drawable.sticker_7) }
+        binding.btnSticker8.setOnClickListener { addStickerFromRes(R.drawable.sticker_8) }
+        binding.btnSticker9.setOnClickListener { addStickerFromRes(R.drawable.sticker_9) }
+        binding.btnSticker10.setOnClickListener { addStickerFromRes(R.drawable.sticker_10) }
+
+        binding.btnStickerDelete.setOnClickListener {
+            // 清空这次贴纸编辑的结果
+            binding.stickerOverlayView.clearAllStickers()
+        }
+
+        binding.btnStickerBringFront.setOnClickListener {
+            binding.stickerOverlayView.bringSelectedToFront()
+        }
+
+        binding.btnStickerSendBack.setOnClickListener {
+            binding.stickerOverlayView.sendSelectedToBack()
+        }
+
+        binding.btnStickerLayerUp.setOnClickListener {
+            binding.stickerOverlayView.moveSelectedUpOneLayer()
+        }
+
+        binding.btnStickerLayerDown.setOnClickListener {
+            binding.stickerOverlayView.moveSelectedDownOneLayer()
+        }
+
+        binding.btnStickerCancel.setOnClickListener {
+            // 恢复备份的贴纸状态
+            stickerBackupState?.let { snapshot ->
+                binding.stickerOverlayView.restoreState(snapshot)
+            }
+            stickerBackupState = null
+
+            binding.stickerOverlayView.isStickerToolActive = false
+            binding.stickerOverlayView.clearSelection()
+
+            updateUiForMode(EditorMode.NORMAL)
+        }
+
+        binding.btnStickerConfirm.setOnClickListener {
+            // 确认保留当前贴纸，不再恢复快照
+            stickerBackupState = null
+
+            binding.stickerOverlayView.isStickerToolActive = false
+            binding.stickerOverlayView.clearSelection()
+
+            updateUiForMode(EditorMode.NORMAL)
+        }
+
 
         // 默认：普通模式（白底）
         updateUiForMode(EditorMode.NORMAL)
@@ -1172,42 +1307,73 @@ class EditorFragment : Fragment() {
         val h = root.height
         if (w <= 0 || h <= 0) return null
 
-        // 临时隐藏选中框和角按钮，仅用于这次绘制
-        val overlay = binding.textOverlayView
-        val oldSuppress = overlay.suppressSelectionDrawing
-        overlay.suppressSelectionDrawing = true
+        // 1. 暂时关闭文字和贴纸的选框绘制
+        val textOverlay = binding.textOverlayView
+        val oldTextSuppress = textOverlay.suppressSelectionDrawing
+        textOverlay.suppressSelectionDrawing = true
+
+        val stickerOverlay = binding.stickerOverlayView
+        val oldStickerSuppress = stickerOverlay.suppressSelectionDrawing
+        stickerOverlay.suppressSelectionDrawing = true
 
         val result = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(result)
 
-        // 把整个编辑容器（包括 imageEditCanvas + textOverlayView）画到 Bitmap
+        // 2. 把整个编辑容器画上去（底图 + 文字 + 贴纸）
         root.draw(canvas)
 
-        // 恢复选中框绘制开关
-        overlay.suppressSelectionDrawing = oldSuppress
+        // 3. 恢复选框绘制开关
+        textOverlay.suppressSelectionDrawing = oldTextSuppress
+        stickerOverlay.suppressSelectionDrawing = oldStickerSuppress
 
-        // 在右下角绘制“训练营”水印
+        // 4. 右下角画“训练营”水印（你原来的代码保持不变）
         val watermarkText = "训练营"
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
-            textSize = (16 * resources.displayMetrics.scaledDensity)  // 16sp 左右
+            textSize = (16 * resources.displayMetrics.scaledDensity)
             style = Paint.Style.FILL
-            setShadowLayer(4f, 2f, 2f, 0x80000000.toInt())            // 轻微阴影提高可见性
+            setShadowLayer(4f, 2f, 2f, 0x80000000.toInt())
         }
-
-        // 计算文字宽高
         val textBounds = android.graphics.Rect()
         paint.getTextBounds(watermarkText, 0, watermarkText.length, textBounds)
         val padding = 16 * resources.displayMetrics.density
-
         val x = w - padding - textBounds.width()
         val y = h - padding
-
         canvas.drawText(watermarkText, x, y, paint)
 
         return result
     }
 
+
+    // 贴纸
+    // 贴纸：从资源中加载，并安全地加到贴纸层上
+    // EditorFragment 里：
+    private fun decodeStickerBitmap(resId: Int): Bitmap? {
+        // 先只读尺寸
+        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resources.openRawResource(resId).use {
+            BitmapFactory.decodeStream(it, null, opts)
+        }
+
+        val maxSize = 256 // 贴纸最大边
+        var inSampleSize = 1
+        while (opts.outWidth / inSampleSize > maxSize ||
+            opts.outHeight / inSampleSize > maxSize
+        ) {
+            inSampleSize *= 2
+        }
+
+        val opts2 = BitmapFactory.Options().apply { this.inSampleSize = inSampleSize }
+        return BitmapFactory.decodeResource(resources, resId, opts2)
+    }
+
+    fun addStickerFromRes(resId: Int) {
+        val bmp = decodeStickerBitmap(resId) ?: return
+        binding.stickerOverlayView.addSticker(bmp)
+    }
+
+
+    // 保存
     private fun saveBitmapToGallery(bitmap: Bitmap, onResult: (Boolean) -> Unit) {
         ioExecutor.execute {
             val success = try {
